@@ -62,6 +62,7 @@ button{
 .btn-success{ background:#1f8f53; }
 .btn-danger{ background:#c83b2d; }
 .btn-warning{ background:#cc7a00; }
+
 .btn-light{
   background:#eaf2f9;
   color:#1f4e78;
@@ -186,7 +187,6 @@ button{
   margin-top:8px;
 }
 
-/* MODALE DDT */
 .modal{
   position:fixed;
   inset:0;
