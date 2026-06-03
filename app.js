@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbzdAgiLfBrkFU3w6goxYV2q8lxCBnLOF-nSSxguumTb6H30Fl7BkMwhZtrd7CtqGH4h/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycby2VeIC20YnpjvrjvHD2a8b8xQ_PD-VJLGeJ6v9EyFiLTcvavzyCodUnl3kLNWbOL-a/exec";
 
 let APP = {
   user: null,
@@ -28,6 +28,7 @@ function startProgress(title, text){
 
   let p = 12;
   clearInterval(APP.progressTimer);
+
   APP.progressTimer = setInterval(() => {
     if (p < 86) {
       p += Math.random() * 12;
@@ -41,6 +42,7 @@ function stopProgress(finalText){
   clearInterval(APP.progressTimer);
   $("progressBar").style.width = "100%";
   if (finalText) $("progressText").textContent = finalText;
+
   setTimeout(() => {
     hide("progressOverlay");
     $("progressBar").style.width = "0%";
@@ -76,6 +78,7 @@ function restoreSessionIfAvailable(){
   hide("loginCard");
   show("appCard");
   setMsg("mainMsg", "Sessione ripristinata.", "ok");
+
   return true;
 }
 
@@ -89,6 +92,7 @@ function jsonpRequest(params){
     script.src = API_URL + "?" + query;
 
     let finished = false;
+
     const cleanup = () => {
       if (script.parentNode) script.parentNode.removeChild(script);
       delete window[callbackName];
@@ -136,6 +140,7 @@ async function initApp(){
 
     restoreSessionIfAvailable();
     stopProgress("Operatori caricati");
+
   } catch (err) {
     stopProgress();
     setMsg("loginMsg", err.message, "err");
@@ -150,6 +155,7 @@ async function doLogin(){
     setMsg("loginMsg", "Seleziona un operatore.", "err");
     return;
   }
+
   if (!pin) {
     setMsg("loginMsg", "Inserisci il PIN.", "err");
     return;
@@ -173,11 +179,13 @@ async function doLogin(){
     $("chipRuolo").textContent = "Ruolo: " + (data.role || "--");
 
     loadSedi(data.sediDisponibili || []);
+
     hide("loginCard");
     show("appCard");
 
     setMsg("mainMsg", "Accesso effettuato correttamente.", "ok");
     stopProgress("Accesso completato");
+
   } catch (err) {
     stopProgress();
     setMsg("loginMsg", err.message, "err");
@@ -187,11 +195,14 @@ async function doLogin(){
 function logoutApp(){
   stopScanner();
   clearLoginSession();
+
   APP.user = null;
+
   show("loginCard");
   hide("appCard");
   hide("movementCard");
   hide("ddtModal");
+
   $("pinOperatore").value = "";
   setMsg("loginMsg", "Sessione chiusa.", "info");
 }
@@ -199,6 +210,7 @@ function logoutApp(){
 function loadSedi(sedi){
   const sel = $("sede");
   sel.innerHTML = "";
+
   sedi.forEach(s => {
     const opt = document.createElement("option");
     opt.value = s;
@@ -209,11 +221,14 @@ function loadSedi(sedi){
 
 function openAction(tipo){
   stopScanner();
+
   APP.actionType = tipo;
+
   $("movementTitle").textContent = tipo === "CARICO" ? "Carica Prodotto" : "Scarica Prodotto";
   $("barcode").value = "";
   $("qty").value = 1;
   $("noteMov").value = "";
+
   hide("productMsg");
   hide("reader");
   hide("ddtModal");
@@ -232,6 +247,7 @@ function openDdtModal(){
   }
 
   const sede = $("sede").value;
+
   if (!sede) {
     setMsg("mainMsg", "Seleziona una sede.", "err");
     return;
@@ -239,9 +255,11 @@ function openDdtModal(){
 
   $("ddtOperatoreBox").textContent = "Operatore: " + APP.user.nome;
   $("ddtSedeBox").textContent = "Sede: " + sede;
+
   $("ddtFile").value = "";
   $("ddtNote").value = "";
   $("ddtPreview").src = "";
+
   hide("ddtPreview");
   hide("ddtMsg");
 
@@ -257,10 +275,12 @@ function previewDdt(input){
   if (!file) return;
 
   const reader = new FileReader();
+
   reader.onload = function(e){
     $("ddtPreview").src = e.target.result;
     show("ddtPreview");
   };
+
   reader.readAsDataURL(file);
 }
 
@@ -270,6 +290,7 @@ function resizeImageToJpegBase64(file, maxWidth = 1400, quality = 0.78){
 
     reader.onload = function(e){
       const img = new Image();
+
       img.onload = function(){
         let width = img.width;
         let height = img.height;
@@ -308,11 +329,6 @@ async function saveDdt(){
     return;
   }
 
-  if (!sede) {
-    setMsg("ddtMsg", "Sede non valida.", "err");
-    return;
-  }
-
   if (!file) {
     setMsg("ddtMsg", "Seleziona una foto del DDT.", "err");
     return;
@@ -320,12 +336,12 @@ async function saveDdt(){
 
   try {
     startProgress("Preparazione DDT", "Compressione immagine in corso…");
+
     const dataUrl = await resizeImageToJpegBase64(file);
 
     startProgress("Salvataggio DDT", "Invio al backend…");
 
-    const res = await jsonpRequest({
-      action: "uploadDdt",
+    await postDdtForm({
       operatoreId: APP.user.operatoreId,
       sede: sede,
       note: note,
@@ -333,19 +349,14 @@ async function saveDdt(){
       fileName: file.name || "ddt.jpg"
     });
 
-    if (!res.ok) throw new Error(res.error || "Errore salvataggio DDT");
-
     stopProgress("DDT salvato");
-    setMsg(
-      "ddtMsg",
-      'DDT caricato correttamente.<br><a href="' + res.url + '" target="_blank">Apri file</a>',
-      "ok"
-    );
+
+    setMsg("ddtMsg", "DDT salvato correttamente.", "ok");
 
     setTimeout(() => {
       closeDdtModal();
       setMsg("mainMsg", "DDT salvato correttamente.", "ok");
-    }, 1000);
+    }, 900);
 
   } catch (err) {
     stopProgress();
@@ -353,8 +364,67 @@ async function saveDdt(){
   }
 }
 
+function postDdtForm(payload){
+  return new Promise((resolve, reject) => {
+    const iframeName = "ddt_upload_iframe_" + Date.now();
+
+    const iframe = document.createElement("iframe");
+    iframe.name = iframeName;
+    iframe.style.display = "none";
+
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = API_URL;
+    form.target = iframeName;
+    form.style.display = "none";
+
+    const fields = {
+      action: "uploadDdtPost",
+      operatoreId: payload.operatoreId,
+      sede: payload.sede,
+      note: payload.note,
+      dataUrl: payload.dataUrl,
+      fileName: payload.fileName
+    };
+
+    Object.keys(fields).forEach(key => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = key;
+      input.value = fields[key] || "";
+      form.appendChild(input);
+    });
+
+    let submitted = false;
+
+    iframe.onload = function(){
+      if (!submitted) return;
+
+      setTimeout(() => {
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+        if (form.parentNode) form.parentNode.removeChild(form);
+      }, 500);
+
+      resolve({ ok: true });
+    };
+
+    iframe.onerror = function(){
+      reject(new Error("Errore caricamento DDT"));
+    };
+
+    document.body.appendChild(iframe);
+    document.body.appendChild(form);
+
+    setTimeout(() => {
+      submitted = true;
+      form.submit();
+    }, 100);
+  });
+}
+
 function startScanner(){
   const readerId = "reader";
+
   show(readerId);
 
   if (APP.scannerRunning) return;
@@ -396,6 +466,7 @@ function startScanner(){
     }).catch(err => {
       setMsg("productMsg", "Errore fotocamera/scanner: " + err, "err");
     });
+
   }).catch(err => {
     setMsg("productMsg", "Errore fotocamera: " + err, "err");
   });
@@ -452,6 +523,7 @@ async function lookupProduct(){
       "<b>Scorta minima:</b> " + res.product.scortaMinima,
       "ok"
     );
+
   } catch (err) {
     stopProgress();
     setMsg("productMsg", err.message, "err");
@@ -468,6 +540,7 @@ async function saveMovement(){
     setMsg("mainMsg", "Codice mancante.", "err");
     return;
   }
+
   if (!qta || qta <= 0) {
     setMsg("mainMsg", "Quantità non valida.", "err");
     return;
@@ -503,6 +576,7 @@ async function saveMovement(){
     }
 
     closeMovement();
+
   } catch (err) {
     stopProgress();
     setMsg("mainMsg", err.message, "err");
