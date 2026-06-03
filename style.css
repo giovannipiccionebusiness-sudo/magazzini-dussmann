@@ -240,13 +240,14 @@ button{
   100%{transform:rotate(360deg)}
 }
 
-.logo-box{
-  text-align:center;
-  margin-bottom:16px;
+.top-logo{
+  position:fixed;
+  top:10px;
+  left:10px;
+  z-index:1000;
 }
 
-.company-logo{
-  max-width:220px;
-  width:70%;
+.company-logo-small{
+  width:90px;
   height:auto;
 }
