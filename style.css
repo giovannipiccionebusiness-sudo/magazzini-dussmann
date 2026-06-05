@@ -247,7 +247,8 @@ button{
   opacity:0.95;
 }
 
-.order-item{
+.order-item,
+.receive-item{
   border:1px solid #d0d7de;
   border-radius:14px;
   padding:12px;
@@ -264,13 +265,15 @@ button{
   margin-bottom:8px;
 }
 
-.order-title{
+.order-title,
+.receive-title{
   font-weight:bold;
   color:#1f4e78;
   margin-bottom:6px;
 }
 
-.order-small{
+.order-small,
+.receive-small{
   font-size:13px;
   color:#637381;
   line-height:1.4;
