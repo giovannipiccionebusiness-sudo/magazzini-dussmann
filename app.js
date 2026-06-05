@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbyauI6Cswtrf4JxqWVU_zrgKgp-fuIgLflj8a9wdEfLwC1mq7WGbIOo0UEGT20kaq8T/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxs9ZED1zVFwWPhkKARFXl9skLfdh7WuEX-6Cu8Cv3boBAaFsIVVyZwg8QcpcFnrV38/exec";
 
 let APP = {
   user: null,
@@ -644,10 +644,16 @@ function renderOrderProducts(products){
   }
 
   products.forEach(p => {
-    const minQty = Math.max(0, Number(p.scortaMinima) - Number(p.giacenza));
+    const minOrdine = Number(p.minOrdine || 1);
+    const multiploOrdine = Number(p.multiploOrdine || 1);
+    const qtaSuggerita = Number(p.qtaSuggerita || minOrdine);
 
     const img = p.linkFoto
       ? '<img class="order-img" src="' + p.linkFoto + '" alt="Foto prodotto">'
+      : '';
+
+    const multiploText = multiploOrdine > 1
+      ? '<br>Multiplo obbligatorio: ' + multiploOrdine
       : '';
 
     const html = `
@@ -658,19 +664,24 @@ function renderOrderProducts(products){
           Codice: ${p.barcode}<br>
           Giacenza: ${p.giacenza}<br>
           Scorta minima: ${p.scortaMinima}<br>
-          Quantità minima da ordinare: ${minQty}
+          Ordine minimo fornitore: ${minOrdine}
+          ${multiploText}<br>
+          Quantità suggerita: ${qtaSuggerita}
         </div>
 
         <label>Quantità ordine</label>
         <input
           type="number"
-          min="${minQty}"
-          value="${minQty}"
+          min="${minOrdine}"
+          step="${multiploOrdine}"
+          value="${qtaSuggerita}"
           class="order-qty"
           data-barcode="${p.barcode}"
           data-prodotto="${p.prodotto}"
           data-giacenza="${p.giacenza}"
-          data-scorta="${p.scortaMinima}">
+          data-scorta="${p.scortaMinima}"
+          data-minordine="${minOrdine}"
+          data-multiplo="${multiploOrdine}">
       </div>
     `;
 
@@ -685,20 +696,34 @@ async function saveOrder(){
 
   const items = [];
 
-  inputs.forEach(input => {
+  for (const input of inputs) {
     const qta = Number(input.value || 0);
-    const min = Number(input.min || 0);
+    const minOrdine = Number(input.dataset.minordine || 1);
+    const multiploOrdine = Number(input.dataset.multiplo || 1);
+    const prodotto = input.dataset.prodotto;
 
     if (qta > 0) {
+      if (qta < minOrdine) {
+        setMsg("orderMsg", prodotto + ": quantità minima ordinabile " + minOrdine, "err");
+        return;
+      }
+
+      if (multiploOrdine > 1 && qta % multiploOrdine !== 0) {
+        setMsg("orderMsg", prodotto + ": ordinabile solo in multipli di " + multiploOrdine, "err");
+        return;
+      }
+
       items.push({
         barcode: input.dataset.barcode,
-        prodotto: input.dataset.prodotto,
+        prodotto: prodotto,
         giacenza: input.dataset.giacenza,
         scortaMinima: input.dataset.scorta,
-        qtaOrdine: Math.max(qta, min)
+        minOrdine: minOrdine,
+        multiploOrdine: multiploOrdine,
+        qtaOrdine: qta
       });
     }
-  });
+  }
 
   if (!items.length) {
     setMsg("orderMsg", "Nessun prodotto selezionato.", "err");
