@@ -11,11 +11,11 @@
   <div class="wrap">
 
     <div class="logo-box">
-  <img
-    src="https://en.dussmann.de/germany/logos/dussmann/logo-rgb.svg"
-    alt="Dussmann"
-    class="company-logo">
-</div>
+      <img
+        src="https://en.dussmann.de/germany/logos/dussmann/logo-rgb.svg"
+        alt="Dussmann"
+        class="company-logo">
+    </div>
 
     <div class="card" id="loginCard">
       <h1>Magazzini Dussmann</h1>
@@ -47,31 +47,37 @@
       <button class="btn btn-success" onclick="openAction('CARICO')">Carica Prodotto</button>
       <button class="btn btn-danger" onclick="openAction('SCARICO')">Scarica Prodotto</button>
       <button class="btn btn-warning" onclick="openDdtModal()">Carica DDT</button>
+      <button class="btn btn-primary" onclick="openOrderModal()">Nuovo Ordine</button>
       <button class="btn btn-light" onclick="logoutApp()">Cambia operatore</button>
 
       <div id="mainMsg" class="msg info">Seleziona la sede e scegli l’operazione.</div>
     </div>
 
-    <div class="card hidden" id="movementCard">
-      <h2 id="movementTitle">Movimento prodotto</h2>
+    <div id="movementCard" class="modal hidden">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2 id="movementTitle">Movimento prodotto</h2>
+          <button class="modal-close" onclick="closeMovement()">×</button>
+        </div>
 
-      <label for="barcode">Codice prodotto</label>
-      <input id="barcode" placeholder="Digita il codice oppure scansiona il barcode" inputmode="numeric" />
+        <label for="barcode">Codice prodotto</label>
+        <input id="barcode" placeholder="Digita il codice oppure scansiona il barcode" inputmode="numeric" />
 
-      <button class="btn btn-light" onclick="startScanner()">Scansiona barcode prodotto</button>
-      <div id="reader" class="reader hidden"></div>
+        <button class="btn btn-light" onclick="startScanner()">Scansiona barcode prodotto</button>
+        <div id="reader" class="reader hidden"></div>
 
-      <button class="btn btn-light" onclick="lookupProduct()">Verifica prodotto</button>
-      <div id="productMsg" class="msg info hidden"></div>
+        <button class="btn btn-light" onclick="lookupProduct()">Verifica prodotto</button>
+        <div id="productMsg" class="msg info hidden"></div>
 
-      <label for="qty">Quantità</label>
-      <input id="qty" type="number" min="1" value="1" />
+        <label for="qty">Quantità</label>
+        <input id="qty" type="number" min="1" value="1" />
 
-      <label for="noteMov">Nota</label>
-      <textarea id="noteMov" placeholder="Nota facoltativa"></textarea>
+        <label for="noteMov">Nota</label>
+        <textarea id="noteMov" placeholder="Nota facoltativa"></textarea>
 
-      <button class="btn btn-primary" onclick="saveMovement()">Conferma movimento</button>
-      <button class="btn btn-light" onclick="closeMovement()">Chiudi</button>
+        <button class="btn btn-primary" onclick="saveMovement()">Conferma movimento</button>
+        <button class="btn btn-light" onclick="closeMovement()">Chiudi</button>
+      </div>
     </div>
 
     <div id="ddtModal" class="modal hidden">
@@ -96,6 +102,28 @@
         <button class="btn btn-light" onclick="closeDdtModal()">Chiudi</button>
 
         <div id="ddtMsg" class="msg info hidden"></div>
+      </div>
+    </div>
+
+    <div id="orderModal" class="modal hidden">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2>Nuovo Ordine</h2>
+          <button class="modal-close" onclick="closeOrderModal()">×</button>
+        </div>
+
+        <div class="meta-box" id="orderOperatoreBox">Operatore: --</div>
+        <div class="meta-box" id="orderSedeBox">Sede: --</div>
+
+        <div id="orderList"></div>
+
+        <label for="orderNote">Note ordine</label>
+        <textarea id="orderNote" placeholder="Note generali ordine"></textarea>
+
+        <button class="btn btn-primary" onclick="saveOrder()">Conferma Ordine</button>
+        <button class="btn btn-light" onclick="closeOrderModal()">Chiudi</button>
+
+        <div id="orderMsg" class="msg info hidden"></div>
       </div>
     </div>
 
