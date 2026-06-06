@@ -45,7 +45,7 @@
       <select id="sede"></select>
 
       <button class="btn btn-success" onclick="openReceiveModal()">Ricevi Merce</button>
-      <button class="btn btn-danger" onclick="openAction('SCARICO')">Scarica Prodotto</button>
+      <button class="btn btn-danger" onclick="openDeliveryModal()">Consegna Materiale</button>
       <button class="btn btn-warning" onclick="openDdtModal()">Carica DDT</button>
       <button class="btn btn-primary" onclick="openOrderModal()">Nuovo Ordine</button>
       <button class="btn btn-light" onclick="logoutApp()">Cambia operatore</button>
@@ -77,6 +77,28 @@
 
         <button class="btn btn-primary" onclick="saveMovement()">Conferma movimento</button>
         <button class="btn btn-light" onclick="closeMovement()">Chiudi</button>
+      </div>
+    </div>
+
+    <div id="deliveryModal" class="modal hidden">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2>Consegna Materiale</h2>
+          <button class="modal-close" onclick="closeDeliveryModal()">×</button>
+        </div>
+
+        <div class="meta-box" id="deliveryOperatoreBox">Operatore: --</div>
+        <div class="meta-box" id="deliverySedeBox">Sede: --</div>
+
+        <div id="deliveryList"></div>
+
+        <label for="deliveryNote">Note</label>
+        <textarea id="deliveryNote" placeholder="Note facoltative"></textarea>
+
+        <button class="btn btn-primary" onclick="saveDelivery()">Conferma consegna</button>
+        <button class="btn btn-light" onclick="closeDeliveryModal()">Chiudi</button>
+
+        <div id="deliveryMsg" class="msg info hidden"></div>
       </div>
     </div>
 
