@@ -204,6 +204,7 @@ function logoutApp(){
   hide("ddtModal");
   hide("orderModal");
   hide("receiveModal");
+  hide("deliveryModal");
 
   $("pinOperatore").value = "";
   setMsg("loginMsg", "Sessione chiusa.", "info");
@@ -221,6 +222,14 @@ function loadSedi(sedi){
   });
 }
 
+function hideAllModals(){
+  hide("movementCard");
+  hide("ddtModal");
+  hide("orderModal");
+  hide("receiveModal");
+  hide("deliveryModal");
+}
+
 function openAction(tipo){
   stopScanner();
 
@@ -233,9 +242,7 @@ function openAction(tipo){
 
   hide("productMsg");
   hide("reader");
-  hide("ddtModal");
-  hide("orderModal");
-  hide("receiveModal");
+  hideAllModals();
   show("movementCard");
 }
 
@@ -267,9 +274,7 @@ function openDdtModal(){
   hide("ddtPreview");
   hide("ddtMsg");
 
-  hide("movementCard");
-  hide("orderModal");
-  hide("receiveModal");
+  hideAllModals();
   show("ddtModal");
 }
 
@@ -591,6 +596,173 @@ async function saveMovement(){
   }
 }
 
+async function openDeliveryModal(){
+  if (!APP.user || !APP.user.operatoreId) {
+    setMsg("mainMsg", "Sessione non valida.", "err");
+    return;
+  }
+
+  const sede = $("sede").value;
+
+  if (!sede) {
+    setMsg("mainMsg", "Seleziona una sede.", "err");
+    return;
+  }
+
+  $("deliveryOperatoreBox").textContent = "Operatore: " + APP.user.nome;
+  $("deliverySedeBox").textContent = "Sede: " + sede;
+  $("deliveryList").innerHTML = "";
+  $("deliveryNote").value = "";
+  hide("deliveryMsg");
+
+  hideAllModals();
+  show("deliveryModal");
+
+  try {
+    startProgress("Caricamento prodotti", "Carico i prodotti disponibili…");
+
+    const res = await jsonpRequest({
+      action: "getDeliveryProducts",
+      sede: sede,
+      operatoreId: APP.user.operatoreId
+    });
+
+    if (!res.ok) throw new Error(res.error || "Errore caricamento prodotti");
+
+    stopProgress("Prodotti caricati");
+
+    renderDeliveryProducts(res.products || []);
+
+  } catch (err) {
+    stopProgress();
+    setMsg("deliveryMsg", err.message, "err");
+  }
+}
+
+function closeDeliveryModal(){
+  hide("deliveryModal");
+}
+
+function safeId(value){
+  return String(value || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function renderDeliveryProducts(products){
+  const box = $("deliveryList");
+  box.innerHTML = "";
+
+  if (!products.length) {
+    box.innerHTML = '<div class="msg warn">Nessun prodotto disponibile da consegnare.</div>';
+    return;
+  }
+
+  products.forEach(p => {
+    const sid = safeId(p.barcode);
+    const img = p.linkFoto
+      ? '<img class="delivery-img" src="' + p.linkFoto + '" alt="Foto prodotto">'
+      : '';
+
+    const html = `
+      <div class="delivery-item">
+        ${img}
+        <div class="delivery-title">${p.prodotto}</div>
+        <div class="delivery-small">
+          Codice: ${p.barcode}<br>
+          Fornitore: ${p.fornitore || "-"}<br>
+          Disponibile: ${p.giacenza} ${p.unita || ""}
+        </div>
+
+        <div class="qty-row">
+          <button class="qty-btn" onclick="changeDeliveryQty('${sid}', -1)">−</button>
+          <div class="qty-value" id="delqty_${sid}">0</div>
+          <button class="qty-btn" onclick="changeDeliveryQty('${sid}', 1)">+</button>
+        </div>
+
+        <input
+          type="hidden"
+          class="delivery-qty"
+          id="delinput_${sid}"
+          value="0"
+          data-barcode="${p.barcode}"
+          data-prodotto="${p.prodotto}"
+          data-max="${p.giacenza}">
+      </div>
+    `;
+
+    box.insertAdjacentHTML("beforeend", html);
+  });
+}
+
+function changeDeliveryQty(sid, delta){
+  const input = $("delinput_" + sid);
+  const label = $("delqty_" + sid);
+
+  if (!input || !label) return;
+
+  const max = Number(input.dataset.max || 0);
+  let val = Number(input.value || 0);
+
+  val += Number(delta || 0);
+
+  if (val < 0) val = 0;
+  if (val > max) val = max;
+
+  input.value = val;
+  label.textContent = val;
+}
+
+async function saveDelivery(){
+  const sede = $("sede").value;
+  const note = $("deliveryNote").value.trim();
+  const inputs = document.querySelectorAll(".delivery-qty");
+
+  const items = [];
+
+  inputs.forEach(input => {
+    const qta = Number(input.value || 0);
+
+    if (qta > 0) {
+      items.push({
+        barcode: input.dataset.barcode,
+        prodotto: input.dataset.prodotto,
+        qta: qta
+      });
+    }
+  });
+
+  if (!items.length) {
+    setMsg("deliveryMsg", "Seleziona almeno un prodotto da consegnare.", "err");
+    return;
+  }
+
+  try {
+    startProgress("Salvataggio consegna", "Aggiornamento giacenze…");
+
+    const res = await jsonpRequest({
+      action: "saveDelivery",
+      sede: sede,
+      operatoreId: APP.user.operatoreId,
+      note: note,
+      items: JSON.stringify(items)
+    });
+
+    if (!res.ok) throw new Error(res.error || "Errore salvataggio consegna");
+
+    stopProgress("Consegna salvata");
+
+    setMsg("deliveryMsg", "Consegna materiale salvata correttamente.", "ok");
+
+    setTimeout(() => {
+      closeDeliveryModal();
+      setMsg("mainMsg", "Consegna materiale registrata correttamente.", "ok");
+    }, 900);
+
+  } catch (err) {
+    stopProgress();
+    setMsg("deliveryMsg", err.message, "err");
+  }
+}
+
 async function openOrderModal(){
   if (!APP.user || !APP.user.operatoreId) {
     setMsg("mainMsg", "Sessione non valida.", "err");
@@ -610,9 +782,7 @@ async function openOrderModal(){
   $("orderList").innerHTML = "";
   hide("orderMsg");
 
-  hide("movementCard");
-  hide("ddtModal");
-  hide("receiveModal");
+  hideAllModals();
   show("orderModal");
 
   try {
@@ -810,9 +980,7 @@ async function openReceiveModal(){
   hide("receiveMsg");
   hide("receiveOrderInfo");
 
-  hide("movementCard");
-  hide("ddtModal");
-  hide("orderModal");
+  hideAllModals();
   show("receiveModal");
 
   try {
