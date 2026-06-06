@@ -1246,3 +1246,48 @@ function postReceiveForm(payload){
 }
 
 window.onload = initApp;
+
+let deferredPrompt = null;
+
+window.addEventListener("beforeinstallprompt", event => {
+  event.preventDefault();
+  deferredPrompt = event;
+
+  const btn = document.getElementById("installBtn");
+  if (btn) btn.classList.remove("hidden");
+});
+
+async function installApp(){
+  if (!deferredPrompt) {
+    showIosInstallHelp();
+    return;
+  }
+
+  deferredPrompt.prompt();
+
+  await deferredPrompt.userChoice;
+
+  deferredPrompt = null;
+
+  const btn = document.getElementById("installBtn");
+  if (btn) btn.classList.add("hidden");
+}
+
+function showIosInstallHelp(){
+  const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  const isStandalone =
+    window.navigator.standalone === true ||
+    window.matchMedia("(display-mode: standalone)").matches;
+
+  if (isIos && !isStandalone) {
+    const msg = document.getElementById("iosInstallMsg");
+    if (msg) msg.classList.remove("hidden");
+  }
+}
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js");
+    showIosInstallHelp();
+  });
+}
