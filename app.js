@@ -930,35 +930,6 @@ async function saveOrder(){
   }
 
   if (!items.length) {
-    setMsg("orderMsg", "Seleziona almeno un articolo da ordinare.", "err");
-    return;
-  }
-
-  try {
-    startProgress("Salvataggio ordine", "Registrazione ordine…");
-
-    await postOrderForm({
-      operatoreId: APP.user.operatoreId,
-      sede: sede,
-      items: JSON.stringify(items)
-    });
-
-    stopProgress("Ordine salvato");
-
-    setMsg("orderMsg", "Ordine salvato correttamente.", "ok");
-
-    setTimeout(() => {
-      closeOrderModal();
-      setMsg("mainMsg", "Nuovo ordine salvato correttamente.", "ok");
-    }, 900);
-
-  } catch (err) {
-    stopProgress();
-    setMsg("orderMsg", err.message, "err");
-  }
-}
-
-  if (!items.length) {
     setMsg("orderMsg", "Nessun prodotto selezionato.", "err");
     return;
   }
@@ -988,62 +959,6 @@ async function saveOrder(){
     stopProgress();
     setMsg("orderMsg", err.message, "err");
   }
-}
-
-function postOrderForm(payload){
-  return new Promise((resolve, reject) => {
-    const iframeName = "order_iframe_" + Date.now();
-
-    const iframe = document.createElement("iframe");
-    iframe.name = iframeName;
-    iframe.style.display = "none";
-
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = API_URL;
-    form.target = iframeName;
-    form.style.display = "none";
-
-    const fields = {
-      action: "saveOrderPost",
-      operatoreId: payload.operatoreId,
-      sede: payload.sede,
-      items: payload.items
-    };
-
-    Object.keys(fields).forEach(key => {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = key;
-      input.value = fields[key] || "";
-      form.appendChild(input);
-    });
-
-    let submitted = false;
-
-    iframe.onload = function(){
-      if (!submitted) return;
-
-      setTimeout(() => {
-        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-        if (form.parentNode) form.parentNode.removeChild(form);
-      }, 500);
-
-      resolve({ ok: true });
-    };
-
-    iframe.onerror = function(){
-      reject(new Error("Errore salvataggio ordine"));
-    };
-
-    document.body.appendChild(iframe);
-    document.body.appendChild(form);
-
-    setTimeout(() => {
-      submitted = true;
-      form.submit();
-    }, 100);
-  });
 }
 
 async function openReceiveModal(){
