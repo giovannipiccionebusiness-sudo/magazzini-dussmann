@@ -821,7 +821,7 @@ function buildQtyOptions(qtaSuggerita, minOrdine, multiploOrdine){
     start = Math.ceil(minOrdine / multiploOrdine) * multiploOrdine;
   }
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 30; i++) {
     const value = start + (i * multiploOrdine);
     options += `<option value="${value}">${value}</option>`;
   }
