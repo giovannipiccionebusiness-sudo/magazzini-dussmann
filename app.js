@@ -812,15 +812,14 @@ function closeOrderModal(){
 function buildQtyOptions(qtaSuggerita, minOrdine, multiploOrdine){
   minOrdine = Number(minOrdine || 1);
   multiploOrdine = Number(multiploOrdine || 1);
-  qtaSuggerita = Number(qtaSuggerita || minOrdine);
 
-  let start = Math.max(minOrdine, qtaSuggerita);
+  let options = `<option value="0" selected>0</option>`;
+
+  let start = minOrdine;
 
   if (multiploOrdine > 1) {
-    start = Math.ceil(start / multiploOrdine) * multiploOrdine;
+    start = Math.ceil(minOrdine / multiploOrdine) * multiploOrdine;
   }
-
-  let options = "";
 
   for (let i = 0; i < 10; i++) {
     const value = start + (i * multiploOrdine);
