@@ -381,3 +381,14 @@ button{
 .dashboard-filter{
   margin-bottom:28px;
 }
+
+.dashboard-filter{
+  margin-bottom:20px;
+}
+
+.dashboard-subtitle{
+  font-size:14px;
+  color:#637381;
+  margin-bottom:20px;
+  font-weight:600;
+}
