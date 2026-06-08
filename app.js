@@ -1370,6 +1370,8 @@ const res = await jsonpRequest({
 
     if (!res.ok) throw new Error(res.error || "Errore dashboard");
 
+    setMsg("adminDashboardMsg", "Filtro attivo: " + (res.filtro || "TUTTE"), "info");
+
     $("kpiSottoScorta").textContent = res.kpi.prodottiSottoScorta || 0;
     $("kpiZero").textContent = res.kpi.prodottiZero || 0;
     $("kpiOrdiniAperti").textContent = res.kpi.ordiniAperti || 0;
