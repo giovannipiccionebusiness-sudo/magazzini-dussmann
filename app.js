@@ -1362,6 +1362,11 @@ async function loadAdminDashboard(){
   ? $("adminDashboardSede").value
   : "TUTTE";
 
+    if ($("dashboardCurrentFilter")) {
+  $("dashboardCurrentFilter").textContent =
+    "Vista: " + sedeFiltro;
+}
+
 const res = await jsonpRequest({
   action: "getAdminDashboard",
   operatoreId: APP.user.operatoreId,
