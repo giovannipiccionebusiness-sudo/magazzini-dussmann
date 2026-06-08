@@ -206,6 +206,50 @@
       </div>
     </div>
 
+    <div id="adminDashboardModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>Dashboard Admin</h2>
+      <button class="modal-close" onclick="closeAdminDashboard()">×</button>
+    </div>
+
+    <div class="admin-kpi-grid">
+      <div class="admin-kpi">
+        <div id="kpiSottoScorta" class="admin-kpi-num">0</div>
+        <div class="admin-kpi-label">Sotto scorta</div>
+      </div>
+
+      <div class="admin-kpi">
+        <div id="kpiZero" class="admin-kpi-num">0</div>
+        <div class="admin-kpi-label">A zero</div>
+      </div>
+
+      <div class="admin-kpi">
+        <div id="kpiOrdiniAperti" class="admin-kpi-num">0</div>
+        <div class="admin-kpi-label">Ordini aperti</div>
+      </div>
+
+      <div class="admin-kpi">
+        <div id="kpiConsegneMese" class="admin-kpi-num">0</div>
+        <div class="admin-kpi-label">Consegne mese</div>
+      </div>
+    </div>
+
+    <div class="chart-box">
+      <h3>Consumi per sede</h3>
+      <canvas id="chartConsumiSede"></canvas>
+    </div>
+
+    <div class="chart-box">
+      <h3>Top prodotti consumati</h3>
+      <canvas id="chartTopProdotti"></canvas>
+    </div>
+
+    <button class="btn btn-light" onclick="loadAdminDashboard()">Aggiorna</button>
+    <div id="adminDashboardMsg" class="msg info hidden"></div>
+  </div>
+</div>
+
     <div id="progressOverlay" class="overlay hidden">
       <div class="overlay-box">
         <div class="spinner"></div>
