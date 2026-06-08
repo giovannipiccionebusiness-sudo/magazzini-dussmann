@@ -337,8 +337,8 @@ button{
 .admin-kpi-grid{
   display:grid;
   grid-template-columns:1fr 1fr;
-  gap:10px;
-  margin-bottom:16px;
+  gap:14px;
+  margin-bottom:20px;
 }
 
 .admin-kpi{
