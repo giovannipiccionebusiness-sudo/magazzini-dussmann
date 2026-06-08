@@ -1358,10 +1358,15 @@ async function loadAdminDashboard(){
   try {
     startProgress("Dashboard", "Caricamento dati amministratore…");
 
-    const res = await jsonpRequest({
-      action: "getAdminDashboard",
-      operatoreId: APP.user.operatoreId
-    });
+    const sedeFiltro = $("adminDashboardSede")
+  ? $("adminDashboardSede").value
+  : "TUTTE";
+
+const res = await jsonpRequest({
+  action: "getAdminDashboard",
+  operatoreId: APP.user.operatoreId,
+  sedeFiltro: sedeFiltro
+});
 
     if (!res.ok) throw new Error(res.error || "Errore dashboard");
 
