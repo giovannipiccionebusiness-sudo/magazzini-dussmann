@@ -1325,7 +1325,24 @@ function setupAdminDashboardButton(){
 function openAdminDashboard(){
   hideAllModals();
   show("adminDashboardModal");
+  loadAdminDashboardSedi();
   loadAdminDashboard();
+}
+
+function loadAdminDashboardSedi(){
+  const sel = $("adminDashboardSede");
+  if (!sel || !APP.user) return;
+
+  if (sel.options.length > 1) return;
+
+  const sedi = APP.user.sediDisponibili || [];
+
+  sedi.forEach(sede => {
+    const opt = document.createElement("option");
+    opt.value = sede;
+    opt.textContent = sede;
+    sel.appendChild(opt);
+  });
 }
 
 function closeAdminDashboard(){
