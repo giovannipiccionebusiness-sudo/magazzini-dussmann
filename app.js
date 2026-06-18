@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbxWQ3UT0VOhPnxts51AH8tyE3fMwpcRQbxof6oFnR0mmTJhgJbNon_qi4fKF6cKwRQ2/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyTV9tRU9WmmYjt1n2ayLRNck3QxOyVw_bq40FYYIXXcbr6o7GoVhiYMFkMl5VuqURy/exec";
 
 let APP = {
   user: null,
