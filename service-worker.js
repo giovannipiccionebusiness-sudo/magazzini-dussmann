@@ -1,4 +1,4 @@
-const VERSION = "1.8.4";
+const VERSION = "1.8.5";
 const CACHE_PREFIX = "magazzini-dussmann-";
 const CACHE_NAME = CACHE_PREFIX + VERSION;
 
@@ -6,7 +6,7 @@ const FILES_TO_CACHE = [
   "./index.html",
   "./style.css?v=" + VERSION,
   "./app.js?v=" + VERSION,
-  "./magazzino-home.webp",
+  "./magazzino-home.webp?v=" + VERSION,
   "./manifest.json"
 ];
 
