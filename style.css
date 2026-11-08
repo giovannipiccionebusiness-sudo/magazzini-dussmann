@@ -796,3 +796,10 @@ button{
   font-size: 1.25rem;
   margin-bottom: 8px;
 }
+
+.mag-home-art {
+  display: block;
+  width: min(100%, 350px);
+  height: auto;
+  margin: 14px auto 0;
+}
