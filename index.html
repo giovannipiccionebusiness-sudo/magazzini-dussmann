@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="it" data-app-version="1.8.0">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Magazzini Dussmann</title>
 
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=1.8.0" />
   <link rel="manifest" href="manifest.json" />
 
   <meta name="theme-color" content="#1f4e78" />
@@ -320,6 +320,15 @@
 
   </div>
 
-  <script src="app.js"></script>
+  <footer class="app-version">Magazzini Dussmann · Versione 1.8.0</footer>
+
+  <dialog id="appUpdate" class="app-update" aria-labelledby="appUpdateTitle">
+    <h2 id="appUpdateTitle">Aggiornamento disponibile</h2>
+    <p id="appUpdateText"></p>
+    <button id="appUpdateApply" type="button" class="btn btn-primary">Aggiorna ora</button>
+    <button id="appUpdateLater" type="button" class="mag-text-button">Più tardi</button>
+  </dialog>
+
+  <script src="app.js?v=1.8.0"></script>
 </body>
 </html>

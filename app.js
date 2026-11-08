@@ -201,8 +201,8 @@ function logoutApp(){
   show("loginCard");
   hide("appCard");
   hide("movementCard");
-  closeDdtModal();
-  closeOrderModal();
+  if (!$("ddtModal").classList.contains("hidden")) closeDdtModal();
+  if (!$("orderModal").classList.contains("hidden")) closeOrderModal();
   hide("receiveModal");
   hide("deliveryModal");
 
@@ -224,8 +224,8 @@ function loadSedi(sedi){
 
 function hideAllModals(){
   hide("movementCard");
-  closeDdtModal();
-  closeOrderModal();
+  if (!$("ddtModal").classList.contains("hidden")) closeDdtModal();
+  if (!$("orderModal").classList.contains("hidden")) closeOrderModal();
   hide("receiveModal");
   hide("deliveryModal");
   hide("adminDashboardModal");
@@ -1133,19 +1133,18 @@ async function openOrderModal(){
     return;
   }
 
-  hideAllModals();
   const order = { sede, operatoreId: APP.user.operatoreId, products: [], ready: false, reviewing: false, saving: false };
-  currentOrder = order;
-  $("orderSedeBox").textContent = sede;
-  $("orderSearch").value = "";
-  $("orderStockFilter").checked = false;
-  $("orderNote").value = "";
-  $("orderList").replaceChildren();
-  hide("orderEmpty");
-  showOrderReview(false);
-  show("orderModal");
-
   try {
+    hideAllModals();
+    currentOrder = order;
+    $("orderSedeBox").textContent = sede;
+    $("orderSearch").value = "";
+    $("orderStockFilter").checked = false;
+    $("orderNote").value = "";
+    $("orderList").replaceChildren();
+    hide("orderEmpty");
+    showOrderReview(false);
+    show("orderModal");
     startProgress("Caricamento prodotti", "Ricerca prodotti…");
     const res = await jsonpRequest({ action: "getOrderProducts", sede, operatoreId: order.operatoreId });
     if (currentOrder !== order) return;
@@ -1154,7 +1153,11 @@ async function openOrderModal(){
     renderOrderProducts(res.products || []);
     stopProgress("Prodotti caricati");
   } catch (err) {
-    if (currentOrder !== order) return;
+    if (currentOrder && currentOrder !== order) return;
+    if ($("orderModal").classList.contains("hidden")) {
+      setMsg("mainMsg", "Impossibile aprire Nuovo Ordine. Aggiorna la pagina e riprova.", "err");
+      return;
+    }
     stopProgress();
     setMsg("orderMsg", err.message, "err");
   }
@@ -1163,7 +1166,8 @@ async function openOrderModal(){
 function closeOrderModal(){
   if (currentOrder?.saving) return;
   currentOrder = undefined;
-  $("orderPhoto").close();
+  const photo = $("orderPhoto");
+  if (photo?.open) photo.close();
   hide("orderModal");
 }
 
@@ -1896,9 +1900,84 @@ function showIosInstallHelp(){
   }
 }
 
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js");
-    showIosInstallHelp();
+async function setupAppUpdates(){
+  if (!("serviceWorker" in navigator)) return;
+
+  const version = document.documentElement.dataset.appVersion;
+  const dialog = $("appUpdate");
+  if (!version || !dialog?.showModal) return;
+  const apply = $("appUpdateApply");
+  const later = $("appUpdateLater");
+  let activating = false;
+  let dismissedWorker;
+  let controller = navigator.serviceWorker.controller;
+
+  function offerUpdate(worker, active = false){
+    if (worker === dismissedWorker || activating) return;
+    $("appUpdateTitle").textContent = "Aggiornamento disponibile";
+    $("appUpdateText").textContent = "È pronta una nuova versione di Magazzini Dussmann.";
+    apply.textContent = "Aggiorna ora";
+    later.hidden = false;
+    apply.onclick = () => {
+      if (active) {
+        window.location.reload();
+        return;
+      }
+      activating = true;
+      apply.disabled = true;
+      worker.postMessage({ type: "ACTIVATE_UPDATE" });
+    };
+    later.onclick = () => {
+      dismissedWorker = worker;
+      dialog.close();
+    };
+    if (!dialog.open) dialog.showModal();
+  }
+
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    const previous = controller;
+    controller = navigator.serviceWorker.controller;
+    if (activating) window.location.reload();
+    else if (previous && controller) offerUpdate(controller, true);
   });
+
+  // Existing installations get an acknowledgement when first opening this release.
+  try {
+    const seen = localStorage.getItem("magazzini_version");
+    if (seen !== version && (seen || loadLoginSession())) {
+      $("appUpdateTitle").textContent = "App aggiornata";
+      $("appUpdateText").textContent = "Magazzini Dussmann · Versione " + version;
+      apply.textContent = "Continua";
+      apply.onclick = () => dialog.close();
+      later.hidden = true;
+      dialog.showModal();
+    }
+    localStorage.setItem("magazzini_version", version);
+  } catch {
+    // Update detection also works when persistent storage is unavailable.
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.register("./service-worker.js", { updateViaCache: "none" });
+    if (registration.waiting && navigator.serviceWorker.controller) offerUpdate(registration.waiting);
+    registration.addEventListener("updatefound", () => {
+      const worker = registration.installing;
+      worker?.addEventListener("statechange", () => {
+        if (worker.state === "installed" && navigator.serviceWorker.controller) offerUpdate(worker);
+      });
+    });
+
+    const check = () => {
+      if (document.visibilityState === "visible") registration.update().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", check);
+    setInterval(check, 5 * 60 * 1000);
+  } catch (error) {
+    console.warn("Controllo aggiornamenti non disponibile", error);
+  }
 }
+
+window.addEventListener("load", () => {
+  showIosInstallHelp();
+  setupAppUpdates();
+});

@@ -798,3 +798,30 @@ button{
   max-height: 68dvh;
   object-fit: contain;
 }
+
+.app-version {
+  max-width: 520px;
+  margin: 14px auto 0;
+  text-align: center;
+  color: #52697a;
+  font-size: .8rem;
+}
+
+.app-update {
+  width: min(82vw, 380px);
+  box-sizing: border-box;
+  padding: 20px;
+  border: 0;
+  border-radius: 16px;
+  color: #163040;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 20%);
+}
+
+.app-update::backdrop {
+  background: rgb(0 0 0 / 50%);
+}
+
+.app-update h2 {
+  font-size: 1.25rem;
+  margin-bottom: 8px;
+}
