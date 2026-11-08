@@ -449,9 +449,11 @@ button{
 }
 
 /* Magazzini home and DDT review */
+#loginCard h1,
 .mag-home-header h1 {
   margin: 0 0 8px;
-  font-size: clamp(1.3rem, 5.4vw, 1.8rem);
+  font-size: clamp(1rem, 5vw, 1.8rem);
+  white-space: nowrap;
   line-height: 1.15;
 }
 

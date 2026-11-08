@@ -1862,41 +1862,55 @@ function renderTopProdottiChart(rows){
 window.onload = initApp;
 
 let deferredPrompt = null;
+const standaloneMode = window.matchMedia("(display-mode: standalone)");
+const appleMobile = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const androidMobile = /android/i.test(navigator.userAgent);
+
+function updateInstallButton(){
+  const button = $("installBtn");
+  const installed = standaloneMode.matches || navigator.standalone === true;
+  button.classList.toggle("hidden", installed || !(deferredPrompt || appleMobile || androidMobile));
+  if (installed) {
+    hide("installHelp");
+    button.setAttribute("aria-expanded", "false");
+  }
+}
 
 window.addEventListener("beforeinstallprompt", event => {
   event.preventDefault();
   deferredPrompt = event;
-
-  const btn = document.getElementById("installBtn");
-  if (btn) btn.classList.remove("hidden");
+  updateInstallButton();
 });
 
-async function installApp(){
-  if (!deferredPrompt) {
-    showIosInstallHelp();
-    return;
-  }
-
-  deferredPrompt.prompt();
-
-  await deferredPrompt.userChoice;
-
+window.addEventListener("appinstalled", () => {
   deferredPrompt = null;
+  hide("installBtn");
+  hide("installHelp");
+  $("installBtn").setAttribute("aria-expanded", "false");
+});
 
-  const btn = document.getElementById("installBtn");
-  if (btn) btn.classList.add("hidden");
-}
+standaloneMode.addEventListener?.("change", updateInstallButton);
 
-function showIosInstallHelp(){
-  const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-  const isStandalone =
-    window.navigator.standalone === true ||
-    window.matchMedia("(display-mode: standalone)").matches;
-
-  if (isIos && !isStandalone) {
-    const msg = document.getElementById("iosInstallMsg");
-    if (msg) msg.classList.remove("hidden");
+async function installApp(){
+  const prompt = deferredPrompt;
+  if (prompt) {
+    deferredPrompt = null;
+    try {
+      await prompt.prompt();
+      return;
+    } catch {
+      updateInstallButton();
+    }
   }
+
+  const help = $("installHelp");
+  const expanded = help.classList.contains("hidden");
+  help.textContent = appleMobile
+    ? "In Safari, apri Condividi → Aggiungi alla schermata Home. Attiva «Apri come app web» se disponibile, poi tocca Aggiungi."
+    : "In Chrome, apri il menu ⋮ e scegli «Installa app» oppure «Aggiungi a schermata Home».";
+  help.classList.toggle("hidden", !expanded);
+  $("installBtn").setAttribute("aria-expanded", String(expanded));
 }
 
 async function setupAppUpdates(){
@@ -1977,6 +1991,6 @@ async function setupAppUpdates(){
 }
 
 window.addEventListener("load", () => {
-  showIosInstallHelp();
+  updateInstallButton();
   setupAppUpdates();
 });
