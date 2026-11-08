@@ -83,6 +83,7 @@ function restoreSessionIfAvailable(){
   hide("loginCard");
   show("appCard");
   setMsg("mainMsg", "Sessione ripristinata.", "ok");
+  openDdtReminderFromLink();
 
   return true;
 }
@@ -192,6 +193,7 @@ async function doLogin(){
 
     setMsg("mainMsg", "Accesso effettuato correttamente.", "ok");
     stopProgress("Accesso completato");
+    openDdtReminderFromLink();
 
   } catch (err) {
     stopProgress();
@@ -216,6 +218,7 @@ function logoutApp(){
   if (!$("ddtModal").classList.contains("hidden")) closeDdtModal();
   if (!$("orderModal").classList.contains("hidden")) closeOrderModal();
   closeMyOrders();
+  closeDdtReminder();
   hide("receiveModal");
   hide("deliveryModal");
 
@@ -240,6 +243,7 @@ function hideAllModals(){
   if (!$("ddtModal").classList.contains("hidden")) closeDdtModal();
   if (!$("orderModal").classList.contains("hidden")) closeOrderModal();
   closeMyOrders();
+  closeDdtReminder();
   hide("receiveModal");
   hide("deliveryModal");
   hide("adminDashboardModal");
@@ -264,6 +268,88 @@ function openAction(tipo){
 function closeMovement(){
   stopScanner();
   hide("movementCard");
+}
+
+let ddtReminder;
+let reminderPDFUrl;
+let reminderRequest;
+
+function closeDdtReminder(){
+  reminderRequest?.abort();
+  reminderRequest = undefined;
+  ddtReminder = undefined;
+  if (reminderPDFUrl) URL.revokeObjectURL(reminderPDFUrl);
+  reminderPDFUrl = undefined;
+  $("ddtReminderPDF").removeAttribute("src");
+  $("ddtReminderDownload").removeAttribute("href");
+  hide("ddtReminderPDF");
+  hide("ddtReminderDownload");
+  hide("ddtReminderModal");
+}
+
+async function reminderApi(id, action, signal){
+  const body = new URLSearchParams({ action, id, session: APP.user.orderHistoryToken });
+  const response = await fetch(API_URL, { method: "POST", body, signal });
+  if (!response.ok) throw new Error("Registro non raggiungibile.");
+  const result = await response.json();
+  if (!result.ok) {
+    if (result.sessionRequired) show("ddtReminderReconnect");
+    throw new Error(result.error || "Ordine non disponibile.");
+  }
+  return result;
+}
+
+async function openDdtReminderFromLink(){
+  const id = new URLSearchParams(location.search).get("ordine-ddt");
+  if (!id || !APP.user) return;
+  hideAllModals();
+  show("ddtReminderModal");
+  hide("ddtReminderActions");
+  hide("ddtReminderReconnect");
+  const status = $("ddtReminderStatus");
+  if (!APP.user.orderHistoryToken) {
+    status.textContent = "Accedi di nuovo per aprire questo ordine.";
+    show("ddtReminderReconnect");
+    return;
+  }
+  status.textContent = "Caricamento dell’ordine…";
+  const controller = new AbortController();
+  reminderRequest = controller;
+  try {
+    const { order } = await reminderApi(id, "getDdtReminderOrder", controller.signal);
+    if (reminderRequest !== controller) return;
+    ddtReminder = order;
+    status.textContent = [order.number, order.company, order.sede].join(" · ");
+    show("ddtReminderActions");
+  } catch (error) {
+    if (reminderRequest === controller) status.textContent = error.message;
+  }
+}
+
+async function openReminderPDF(){
+  if (!ddtReminder || !reminderRequest) return;
+  const controller = reminderRequest;
+  const status = $("ddtReminderStatus");
+  try {
+    const result = await reminderApi(ddtReminder.id, "getDdtReminderPDF", controller.signal);
+    if (reminderRequest !== controller) return;
+    if (reminderPDFUrl) URL.revokeObjectURL(reminderPDFUrl);
+    reminderPDFUrl = URL.createObjectURL(new Blob([Uint8Array.from(atob(result.pdf), c => c.charCodeAt(0))], { type: "application/pdf" }));
+    $("ddtReminderPDF").src = reminderPDFUrl;
+    $("ddtReminderDownload").href = reminderPDFUrl;
+    show("ddtReminderPDF");
+    show("ddtReminderDownload");
+  } catch (error) {
+    if (reminderRequest === controller) status.textContent = error.message;
+  }
+}
+
+function uploadReminderDdt(){
+  if (!ddtReminder) return;
+  const order = ddtReminder;
+  $("sede").value = order.sede;
+  openDdtModal();
+  $("ddtNote").value = "Ordine Dussmann " + order.number;
 }
 
 function openDdtModal(){
