@@ -177,27 +177,47 @@
       </div>
     </div>
 
-    <div id="orderModal" class="modal hidden">
+    <div id="orderModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="orderTitle">
       <div class="modal-card">
         <div class="modal-head">
-          <h2>Nuovo Ordine</h2>
-          <button class="modal-close" onclick="closeOrderModal()">×</button>
+          <div>
+            <h2 id="orderTitle">Nuovo Ordine</h2>
+            <div id="orderSedeBox" class="order-site"></div>
+          </div>
+          <button type="button" class="modal-close" aria-label="Chiudi" onclick="closeOrderModal()">×</button>
         </div>
 
-        <div class="meta-box" id="orderOperatoreBox">Operatore: --</div>
-        <div class="meta-box" id="orderSedeBox">Sede: --</div>
+        <div id="orderScroll" class="ddt-scroll">
+          <div id="orderCatalog">
+            <div class="order-filters">
+              <input id="orderSearch" type="search" aria-label="Cerca prodotto per nome o codice" placeholder="Cerca nome o codice" oninput="filterOrderProducts()" />
+              <label class="order-filter-check"><input id="orderStockFilter" type="checkbox" onchange="filterOrderProducts()" /> Solo sottoscorta</label>
+            </div>
+            <div id="orderList"></div>
+            <p id="orderEmpty" class="msg info hidden" role="status"></p>
+          </div>
+          <div id="orderReview" class="hidden">
+            <h3>Riepilogo per fornitore</h3>
+            <div id="orderSummary"></div>
+            <label for="orderNote">Note ordine</label>
+            <textarea id="orderNote" placeholder="Note generali ordine"></textarea>
+          </div>
+          <div id="orderMsg" class="msg info hidden" role="status"></div>
+        </div>
 
-        <div id="orderList"></div>
-
-        <label for="orderNote">Note ordine</label>
-        <textarea id="orderNote" placeholder="Note generali ordine"></textarea>
-
-        <button class="btn btn-primary" onclick="saveOrder()">Conferma Ordine</button>
-        <button class="btn btn-light" onclick="closeOrderModal()">Chiudi</button>
-
-        <div id="orderMsg" class="msg info hidden"></div>
+        <div class="ddt-footer order-footer">
+          <span id="orderCount" role="status">0 prodotti selezionati</span>
+          <button id="orderBack" type="button" class="btn btn-light hidden" onclick="showOrderReview(false)">Torna ai prodotti</button>
+          <button id="orderReviewBtn" type="button" class="btn btn-primary" onclick="showOrderReview(true)" disabled>Rivedi ordine</button>
+          <button id="orderConfirm" type="button" class="btn btn-primary hidden" onclick="saveOrder()" disabled>Conferma ordine</button>
+        </div>
       </div>
     </div>
+
+    <dialog id="orderPhoto" class="order-photo" aria-label="Foto prodotto">
+      <button type="button" class="modal-close" aria-label="Chiudi foto" onclick="document.getElementById('orderPhoto').close()">×</button>
+      <img id="orderPhotoImage" alt="" />
+    </dialog>
 
     <div id="receiveModal" class="modal hidden">
       <div class="modal-card">

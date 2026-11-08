@@ -202,7 +202,7 @@ function logoutApp(){
   hide("appCard");
   hide("movementCard");
   closeDdtModal();
-  hide("orderModal");
+  closeOrderModal();
   hide("receiveModal");
   hide("deliveryModal");
 
@@ -225,7 +225,7 @@ function loadSedi(sedi){
 function hideAllModals(){
   hide("movementCard");
   closeDdtModal();
-  hide("orderModal");
+  closeOrderModal();
   hide("receiveModal");
   hide("deliveryModal");
   hide("adminDashboardModal");
@@ -1119,6 +1119,8 @@ async function saveDelivery(){
   }
 }
 
+let currentOrder;
+
 async function openOrderModal(){
   if (!APP.user || !APP.user.operatoreId) {
     setMsg("mainMsg", "Sessione non valida.", "err");
@@ -1126,190 +1128,250 @@ async function openOrderModal(){
   }
 
   const sede = $("sede").value;
-
   if (!sede) {
     setMsg("mainMsg", "Seleziona una sede.", "err");
     return;
   }
 
-  $("orderOperatoreBox").textContent = "Operatore: " + APP.user.nome;
-  $("orderSedeBox").textContent = "Sede: " + sede;
-  $("orderNote").value = "";
-  $("orderList").innerHTML = "";
-  hide("orderMsg");
-
   hideAllModals();
+  const order = { sede, operatoreId: APP.user.operatoreId, products: [], ready: false, reviewing: false, saving: false };
+  currentOrder = order;
+  $("orderSedeBox").textContent = sede;
+  $("orderSearch").value = "";
+  $("orderStockFilter").checked = false;
+  $("orderNote").value = "";
+  $("orderList").replaceChildren();
+  hide("orderEmpty");
+  showOrderReview(false);
   show("orderModal");
 
   try {
-    startProgress("Caricamento prodotti", "Ricerca prodotti sotto scorta…");
-
-    const res = await jsonpRequest({
-      action: "getOrderProducts",
-      sede: sede,
-      operatoreId: APP.user.operatoreId
-    });
-
+    startProgress("Caricamento prodotti", "Ricerca prodotti…");
+    const res = await jsonpRequest({ action: "getOrderProducts", sede, operatoreId: order.operatoreId });
+    if (currentOrder !== order) return;
     if (!res.ok) throw new Error(res.error || "Errore prodotti ordine");
 
-    stopProgress("Prodotti caricati");
     renderOrderProducts(res.products || []);
-
+    stopProgress("Prodotti caricati");
   } catch (err) {
+    if (currentOrder !== order) return;
     stopProgress();
     setMsg("orderMsg", err.message, "err");
   }
 }
 
 function closeOrderModal(){
+  if (currentOrder?.saving) return;
+  currentOrder = undefined;
+  $("orderPhoto").close();
   hide("orderModal");
 }
 
-function buildQtyOptions(qtaSuggerita, minOrdine, multiploOrdine){
-  minOrdine = Number(minOrdine || 1);
-  multiploOrdine = Number(multiploOrdine || 1);
-
-  let options = `<option value="0" selected>0</option>`;
-
-  let start = minOrdine;
-
-  if (multiploOrdine > 1) {
-    start = Math.ceil(minOrdine / multiploOrdine) * multiploOrdine;
-  }
-
-  for (let i = 0; i < 30; i++) {
-    const value = start + (i * multiploOrdine);
-    options += `<option value="${value}">${value}</option>`;
-  }
-
-  return options;
+function orderQuantityRule(value){
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 1;
 }
 
 function renderOrderProducts(products){
   const box = $("orderList");
-  box.innerHTML = "";
+  currentOrder.products = products.map(p => {
+    const minOrdine = orderQuantityRule(p.minOrdine);
+    const multiploOrdine = orderQuantityRule(p.multiploOrdine);
+    const first = Math.ceil(minOrdine / multiploOrdine) * multiploOrdine;
+    const proposed = Math.max(first, Math.ceil(orderQuantityRule(p.qtaSuggerita || minOrdine) / multiploOrdine) * multiploOrdine);
+    return {
+      p, minOrdine, multiploOrdine, first, proposed, qty: 0,
+      low: Number(p.giacenza || 0) <= Number(p.scortaMinima || 0),
+      supplier: p.fornitore || "SENZA FORNITORE"
+    };
+  }).sort((a, b) => Number(b.low) - Number(a.low));
 
-  if (!products.length) {
-    box.innerHTML = '<div class="msg ok">Nessun prodotto sotto scorta.</div>';
-    return;
+  const cards = currentOrder.products.map(item => {
+    const { p, low, supplier, multiploOrdine } = item;
+    const card = document.createElement("article");
+    card.className = "order-compact";
+    card.innerHTML = `
+      <button type="button" class="order-thumbnail" hidden><img alt="" loading="lazy" /></button>
+      <div class="order-product">
+        <h3 class="order-title"></h3>
+        <span class="order-stock-badge" hidden>Sotto scorta</span>
+        <div class="order-controls"></div>
+        <details class="order-details">
+          <summary>Dettagli</summary>
+          <div class="order-small"></div>
+        </details>
+      </div>`;
+    card.querySelector("h3").textContent = p.prodotto;
+    card.querySelector(".order-stock-badge").hidden = !low;
+    card.querySelector(".order-small").textContent =
+      [p.barcode && "Codice " + p.barcode, "Fornitore " + supplier,
+        multiploOrdine > 1 && "Multipli di " + multiploOrdine].filter(Boolean).join(" · ");
+
+    if (p.linkFoto) {
+      const thumbnail = card.querySelector(".order-thumbnail");
+      thumbnail.hidden = false;
+      thumbnail.setAttribute("aria-label", "Ingrandisci foto di " + p.prodotto);
+      const image = thumbnail.querySelector("img");
+      image.src = p.linkFoto;
+      image.addEventListener("error", () => { thumbnail.hidden = true; });
+      thumbnail.onclick = () => {
+        $("orderPhotoImage").src = image.src;
+        $("orderPhotoImage").alt = p.prodotto;
+        $("orderPhoto").showModal();
+      };
+    }
+
+    const controls = card.querySelector(".order-controls");
+    item.catalogQty = createOrderStepper(item, controls);
+    const proposed = document.createElement("button");
+    proposed.type = "button";
+    proposed.className = "mag-text-button order-proposed";
+    proposed.textContent = "Usa quantità suggerita";
+    proposed.onclick = () => setOrderQty(item, item.proposed);
+    controls.append(proposed);
+    item.card = card;
+    return card;
+  });
+
+  box.replaceChildren(...cards);
+  currentOrder.ready = true;
+  filterOrderProducts();
+}
+
+function filterOrderProducts(){
+  if (!currentOrder?.ready) return;
+  const search = $("orderSearch").value.trim().toLocaleLowerCase("it");
+  const onlyLow = $("orderStockFilter").checked;
+  let visible = 0;
+  currentOrder.products.forEach(item => {
+    const matches = (!onlyLow || item.low) &&
+      [item.p.prodotto, item.p.barcode].some(value => String(value || "").toLocaleLowerCase("it").includes(search));
+    item.card.hidden = !matches;
+    if (matches) visible++;
+  });
+  $("orderEmpty").textContent = currentOrder.products.length
+    ? "Nessun prodotto corrisponde ai filtri." : "Nessun prodotto disponibile per questa sede.";
+  if (visible) hide("orderEmpty");
+  else show("orderEmpty");
+}
+
+function createOrderStepper(item, container){
+  const stepper = document.createElement("div");
+  stepper.className = "order-stepper";
+  stepper.innerHTML = '<button type="button" class="btn btn-light">−</button><output aria-live="polite"></output><button type="button" class="btn btn-light">+</button>';
+  const [minus, qty, plus] = stepper.children;
+  minus.setAttribute("aria-label", "Diminuisci quantità di " + item.p.prodotto);
+  plus.setAttribute("aria-label", "Aumenta quantità di " + item.p.prodotto);
+  minus.onclick = () => setOrderQty(item, item.qty > item.first ? item.qty - item.multiploOrdine : 0);
+  plus.onclick = () => setOrderQty(item, item.qty ? item.qty + item.multiploOrdine : item.first);
+  const update = () => {
+    qty.value = item.qty;
+    minus.disabled = item.qty === 0 || currentOrder.saving;
+    plus.disabled = currentOrder.saving;
+  };
+  update();
+  container.append(stepper);
+  return update;
+}
+
+function setOrderQty(item, quantity){
+  if (!currentOrder || currentOrder.saving) return;
+  item.qty = quantity;
+  item.catalogQty();
+  if (currentOrder.reviewing && quantity === 0) renderOrderSummary();
+  else if (currentOrder.reviewing) item.summaryQty();
+  updateOrderFooter();
+}
+
+function updateOrderFooter(){
+  const count = currentOrder.products.filter(item => item.qty > 0).length;
+  $("orderCount").textContent = count + (count === 1 ? " prodotto selezionato" : " prodotti selezionati");
+  $("orderReviewBtn").disabled = count === 0 || currentOrder.saving;
+  $("orderConfirm").disabled = count === 0 || currentOrder.saving;
+}
+
+function showOrderReview(review){
+  if (!currentOrder || currentOrder.saving) return;
+  currentOrder.reviewing = review;
+  const showCatalog = review ? hide : show;
+  const showReview = review ? show : hide;
+  showCatalog("orderCatalog");
+  showCatalog("orderReviewBtn");
+  showReview("orderReview");
+  showReview("orderBack");
+  showReview("orderConfirm");
+  hide("orderMsg");
+  if (review) renderOrderSummary();
+  updateOrderFooter();
+  $("orderScroll").scrollTop = 0;
+}
+
+function renderOrderSummary(){
+  const groups = new Map();
+  for (const item of currentOrder.products) {
+    if (!item.qty) continue;
+    if (!groups.has(item.supplier)) groups.set(item.supplier, []);
+    groups.get(item.supplier).push(item);
   }
 
-  products.forEach(p => {
-    const minOrdine = Number(p.minOrdine || 1);
-    const multiploOrdine = Number(p.multiploOrdine || 1);
-    const qtaSuggerita = Number(p.qtaSuggerita || minOrdine);
-
-    const sottoScorta = Number(p.giacenza || 0) <= Number(p.scortaMinima || 0);
-    const alertClass = sottoScorta ? " order-alert" : "";
-
-    const img = p.linkFoto
-      ? '<img class="order-img" src="' + p.linkFoto + '" alt="Foto prodotto">'
-      : '';
-
-    const multiploText = multiploOrdine > 1
-      ? '<br>Multiplo obbligatorio: ' + multiploOrdine
-      : '';
-
-    const options = buildQtyOptions(qtaSuggerita, minOrdine, multiploOrdine);
-
-    const html = `
-      <div class="order-item${alertClass}">
-        ${img}
-
-        ${sottoScorta ? '<div class="stock-warning">⚠️ Prodotto sotto scorta</div>' : ''}
-
-        <div class="order-title">${p.prodotto}</div>
-
-        <div class="order-small">
-          Codice: ${p.barcode}<br>
-          Fornitore: ${p.fornitore || "-"}<br>
-          Giacenza: ${p.giacenza}<br>
-          Scorta minima: ${p.scortaMinima}<br>
-          Ordine minimo fornitore: ${minOrdine}
-          ${multiploText}<br>
-          Quantità consigliata: ${qtaSuggerita}
-        </div>
-
-        <label>Quantità ordine</label>
-        <select
-          class="order-qty"
-          data-barcode="${p.barcode}"
-          data-prodotto="${p.prodotto}"
-          data-giacenza="${p.giacenza}"
-          data-scorta="${p.scortaMinima}"
-          data-minordine="${minOrdine}"
-          data-multiplo="${multiploOrdine}"
-          data-fornitore="${p.fornitore || "SENZA FORNITORE"}">
-          ${options}
-        </select>
-      </div>
-    `;
-
-    box.insertAdjacentHTML("beforeend", html);
-  });
+  const summary = $("orderSummary");
+  summary.replaceChildren();
+  for (const [supplier, items] of groups) {
+    const section = document.createElement("section");
+    const heading = document.createElement("h4");
+    heading.textContent = supplier;
+    section.append(heading);
+    for (const item of items) {
+      const row = document.createElement("div");
+      row.className = "order-summary-row";
+      const name = document.createElement("span");
+      name.textContent = item.p.prodotto;
+      row.append(name);
+      item.summaryQty = createOrderStepper(item, row);
+      section.append(row);
+    }
+    summary.append(section);
+  }
+  if (!groups.size) summary.textContent = "Nessun prodotto selezionato.";
 }
 
 async function saveOrder(){
-  const sede = $("sede").value;
-  const inputs = document.querySelectorAll(".order-qty");
-
+  const order = currentOrder;
+  if (!order?.reviewing || order.saving) return;
   const items = [];
-
-  for (const input of inputs) {
-    const qta = Number(input.value || 0);
-    const minOrdine = Number(input.dataset.minordine || 1);
-    const multiploOrdine = Number(input.dataset.multiplo || 1);
-    const prodotto = input.dataset.prodotto;
-
-    if (qta > 0) {
-      if (qta < minOrdine) {
-        setMsg("orderMsg", prodotto + ": quantità minima ordinabile " + minOrdine, "err");
-        return;
-      }
-
-      if (multiploOrdine > 1 && qta % multiploOrdine !== 0) {
-        setMsg("orderMsg", prodotto + ": ordinabile solo in multipli di " + multiploOrdine, "err");
-        return;
-      }
-
-      items.push({
-        barcode: input.dataset.barcode,
-        prodotto: prodotto,
-        giacenza: input.dataset.giacenza,
-        scortaMinima: input.dataset.scorta,
-        minOrdine: minOrdine,
-        multiploOrdine: multiploOrdine,
-        qtaOrdine: qta,
-        fornitore: input.dataset.fornitore || "SENZA FORNITORE"
-      });
+  for (const { p, qty, minOrdine, multiploOrdine, supplier } of order.products) {
+    if (!qty) continue;
+    const steps = qty / multiploOrdine;
+    if (!Number.isFinite(qty) || qty < minOrdine || Math.abs(steps - Math.round(steps)) > 1e-8) {
+      setMsg("orderMsg", p.prodotto + ": quantità non valida per il fornitore.", "err");
+      return;
     }
+    items.push({
+      barcode: String(p.barcode),
+      prodotto: String(p.prodotto),
+      giacenza: String(p.giacenza),
+      scortaMinima: String(p.scortaMinima),
+      minOrdine,
+      multiploOrdine,
+      qtaOrdine: qty,
+      fornitore: supplier
+    });
   }
+  if (!items.length) return;
 
-  if (!items.length) {
-    setMsg("orderMsg", "Nessun prodotto selezionato.", "err");
-    return;
-  }
-
+  order.saving = true;
+  updateOrderFooter();
   try {
     startProgress("Salvataggio ordine", "Registrazione ordine…");
-
-    await postOrderForm({
-      operatoreId: APP.user.operatoreId,
-      sede: sede,
-      items: JSON.stringify(items)
-    });
-
+    await postOrderForm({ operatoreId: order.operatoreId, sede: order.sede, items: JSON.stringify(items) });
     stopProgress("Ordine salvato");
-
-    setMsg("orderMsg", "Ordine salvato correttamente.", "ok");
-
-    setTimeout(() => {
-      closeOrderModal();
-      setMsg("mainMsg", "Nuovo ordine salvato correttamente.", "ok");
-    }, 900);
-
+    order.saving = false;
+    closeOrderModal();
+    setMsg("mainMsg", "Nuovo ordine salvato correttamente.", "ok");
   } catch (err) {
     stopProgress();
+    order.saving = false;
+    updateOrderFooter();
     setMsg("orderMsg", err.message, "err");
   }
 }
