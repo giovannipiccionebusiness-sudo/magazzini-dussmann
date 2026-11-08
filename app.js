@@ -214,6 +214,7 @@ function logoutApp(){
   hide("movementCard");
   if (!$("ddtModal").classList.contains("hidden")) closeDdtModal();
   if (!$("orderModal").classList.contains("hidden")) closeOrderModal();
+  hide("myOrdersModal");
   hide("receiveModal");
   hide("deliveryModal");
 
@@ -237,6 +238,7 @@ function hideAllModals(){
   hide("movementCard");
   if (!$("ddtModal").classList.contains("hidden")) closeDdtModal();
   if (!$("orderModal").classList.contains("hidden")) closeOrderModal();
+  hide("myOrdersModal");
   hide("receiveModal");
   hide("deliveryModal");
   hide("adminDashboardModal");
@@ -1130,6 +1132,67 @@ async function saveDelivery(){
   }
 }
 
+function orderStorageKey(kind, operatoreId, sede = ""){
+  return "magazzini_ordini:" + JSON.stringify([kind, String(operatoreId), sede]);
+}
+
+function readOrderStorage(key, fallback){
+  try {
+    return JSON.parse(localStorage.getItem(key)) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeOrderStorage(key, value){
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function saveOrderDraft(){
+  const order = currentOrder;
+  if (!order?.ready || order.saving) return;
+  const notes = $("orderNote").value;
+  const quantities = order.products.filter(item => item.qty > 0)
+    .map(item => [String(item.p.barcode), item.qty]);
+  const stored = writeOrderStorage(order.draftKey, quantities.length || notes ? { notes, quantities } : null);
+  if (!stored) setMsg("orderDraftStatus", "Impossibile salvare la bozza in questo browser.", "warn");
+  else if (quantities.length || notes) setMsg("orderDraftStatus", "Bozza salvata su questo dispositivo.", "info");
+  else hide("orderDraftStatus");
+}
+
+function openMyOrders(){
+  if (!APP.user?.operatoreId) return;
+  hideAllModals();
+  const list = $("myOrdersList");
+  list.replaceChildren();
+  const key = orderStorageKey("history", APP.user.operatoreId);
+  const orders = readOrderStorage(key, []);
+  if (!orders.length) list.textContent = "Nessun invio registrato su questo browser.";
+  for (const order of orders) {
+    const details = document.createElement("details");
+    details.className = "order-compact";
+    const summary = document.createElement("summary");
+    const date = new Date(order.date).toLocaleString("it-IT", { timeZone: "Europe/Rome" });
+    summary.textContent = order.sede + " · " + date + " · Da verificare";
+    details.append(summary);
+    const items = document.createElement("ul");
+    for (const item of order.items) {
+      const row = document.createElement("li");
+      row.textContent = item.prodotto + " × " + item.qtaOrdine + " · " + item.fornitore;
+      items.append(row);
+    }
+    details.append(items);
+    list.append(details);
+  }
+  show("myOrdersModal");
+}
+
 let currentOrder;
 
 async function openOrderModal(){
@@ -1148,9 +1211,12 @@ async function openOrderModal(){
   try {
     hideAllModals();
     currentOrder = order;
+    order.draftKey = orderStorageKey("draft", order.operatoreId, sede);
+    order.draft = readOrderStorage(order.draftKey, {});
+    hide("orderDraftStatus");
     $("orderSedeBox").textContent = sede;
     $("orderSearch").value = "";
-    $("orderNote").value = "";
+    $("orderNote").value = order.draft.notes || "";
     $("orderList").replaceChildren();
     hide("orderEmpty");
     showOrderReview(false);
@@ -1161,6 +1227,10 @@ async function openOrderModal(){
     if (!res.ok) throw new Error(res.error || "Errore prodotti ordine");
 
     renderOrderProducts(res.products || []);
+    updateOrderFooter();
+    if (order.products.some(item => item.qty > 0) || order.draft.notes) {
+      setMsg("orderDraftStatus", "Bozza ripristinata.", "info");
+    }
     stopProgress("Prodotti caricati");
   } catch (err) {
     if (currentOrder && currentOrder !== order) return;
@@ -1188,12 +1258,17 @@ function orderQuantityRule(value){
 
 function renderOrderProducts(products){
   const box = $("orderList");
+  const saved = new Map(currentOrder.draft.quantities || []);
   currentOrder.products = products.map(p => {
     const minOrdine = orderQuantityRule(p.minOrdine);
     const multiploOrdine = orderQuantityRule(p.multiploOrdine);
     const first = Math.ceil(minOrdine / multiploOrdine) * multiploOrdine;
+    const previous = saved.get(String(p.barcode)) || 0;
+    const steps = previous / multiploOrdine;
+    const qty = Number.isFinite(previous) && previous >= minOrdine && Math.abs(steps - Math.round(steps)) < 1e-8
+      ? previous : 0;
     return {
-      p, minOrdine, multiploOrdine, first, qty: 0,
+      p, minOrdine, multiploOrdine, first, qty,
       low: Number(p.giacenza || 0) <= Number(p.scortaMinima || 0),
       supplier: p.fornitore || "SENZA FORNITORE"
     };
@@ -1280,6 +1355,7 @@ function createOrderStepper(item, container){
 function setOrderQty(item, quantity){
   if (!currentOrder || currentOrder.saving) return;
   item.qty = quantity;
+  saveOrderDraft();
   item.catalogQty();
   if (currentOrder.reviewing && quantity === 0) renderOrderSummary();
   else if (currentOrder.reviewing) item.summaryQty();
@@ -1365,17 +1441,25 @@ async function saveOrder(){
   order.saving = true;
   updateOrderFooter();
   try {
-    startProgress("Salvataggio ordine", "Registrazione ordine…");
+    startProgress("Salvataggio ordine", "Invio ordine…");
+    const key = orderStorageKey("history", order.operatoreId);
+    const history = readOrderStorage(key, []);
+    const recorded = writeOrderStorage(key, [{ date: Date.now(), sede: order.sede, items: items.map(
+      ({ prodotto, qtaOrdine, fornitore }) => ({ prodotto, qtaOrdine, fornitore })
+    ) }, ...history].slice(0, 100));
     await postOrderForm({ operatoreId: order.operatoreId, sede: order.sede, items: JSON.stringify(items) });
-    stopProgress("Ordine salvato");
+    stopProgress("Invio completato");
+    if (recorded) writeOrderStorage(order.draftKey, null);
     order.saving = false;
     closeOrderModal();
-    setMsg("mainMsg", "Nuovo ordine salvato correttamente.", "ok");
+    setMsg("mainMsg", recorded
+      ? "Invio completato. Trovi l’ordine in «I miei ordini», in attesa di verifica."
+      : "Invio completato. Lo storico locale non è disponibile: verifica la registrazione prima di riprovare.", "info");
   } catch (err) {
     stopProgress();
     order.saving = false;
     updateOrderFooter();
-    setMsg("orderMsg", err.message, "err");
+    setMsg("orderMsg", "Invio non verificato. La bozza è stata mantenuta: controlla il registro prima di riprovare.", "warn");
   }
 }
 
@@ -1409,19 +1493,25 @@ function postOrderForm(payload){
     });
 
     let submitted = false;
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error("Timeout invio ordine"));
+    }, 30000);
+
+    function cleanup(){
+      clearTimeout(timeout);
+      iframe.remove();
+      form.remove();
+    }
 
     iframe.onload = function(){
       if (!submitted) return;
-
-      setTimeout(() => {
-        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-        if (form.parentNode) form.parentNode.removeChild(form);
-      }, 500);
-
-      resolve({ ok: true });
+      cleanup();
+      resolve();
     };
 
     iframe.onerror = function(){
+      cleanup();
       reject(new Error("Errore salvataggio ordine"));
     };
 
