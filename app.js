@@ -214,7 +214,7 @@ function logoutApp(){
   hide("movementCard");
   if (!$("ddtModal").classList.contains("hidden")) closeDdtModal();
   if (!$("orderModal").classList.contains("hidden")) closeOrderModal();
-  hide("myOrdersModal");
+  closeMyOrders();
   hide("receiveModal");
   hide("deliveryModal");
 
@@ -238,7 +238,7 @@ function hideAllModals(){
   hide("movementCard");
   if (!$("ddtModal").classList.contains("hidden")) closeDdtModal();
   if (!$("orderModal").classList.contains("hidden")) closeOrderModal();
-  hide("myOrdersModal");
+  closeMyOrders();
   hide("receiveModal");
   hide("deliveryModal");
   hide("adminDashboardModal");
@@ -1166,9 +1166,75 @@ function saveOrderDraft(){
   else hide("orderDraftStatus");
 }
 
+let registeredOrdersRequest;
+
+function closeMyOrders(){
+  registeredOrdersRequest?.abort();
+  registeredOrdersRequest = undefined;
+  $("myOrdersPin").value = "";
+  $("registeredOrdersList").replaceChildren();
+  hide("myOrdersModal");
+}
+
+async function loadRegisteredOrders(event){
+  event.preventDefault();
+  const user = APP.user;
+  if (!user?.operatoreId || registeredOrdersRequest) return;
+  const controller = new AbortController();
+  registeredOrdersRequest = controller;
+  const button = $("myOrdersForm").querySelector("button");
+  const status = $("myOrdersStatus");
+  const list = $("registeredOrdersList");
+  const pin = $("myOrdersPin");
+  const body = new URLSearchParams({ action: "getRegisteredOrders", operatoreId: user.operatoreId, pin: pin.value });
+  pin.value = "";
+  button.disabled = true;
+  status.textContent = "Caricamento dal registro…";
+  list.replaceChildren();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+
+  try {
+    const response = await fetch(API_URL, { method: "POST", body, signal: controller.signal });
+    if (!response.ok) throw new Error();
+    const result = await response.json();
+    if (registeredOrdersRequest !== controller || APP.user !== user) return;
+    if (!result.ok) {
+      status.textContent = result.error || "Impossibile leggere il registro.";
+      return;
+    }
+    status.textContent = result.orders.length ? "Ultimi ordini registrati" : "Nessun ordine nel registro.";
+    for (const order of result.orders) {
+      const details = document.createElement("details");
+      details.className = "order-compact";
+      const summary = document.createElement("summary");
+      const date = order.date ? new Date(order.date).toLocaleString("it-IT", { timeZone: "Europe/Rome" }) : "";
+      summary.textContent = [order.id, order.sede, order.fornitore, date].filter(Boolean).join(" · ");
+      details.append(summary);
+      const items = document.createElement("ul");
+      for (const item of order.items) {
+        const row = document.createElement("li");
+        row.textContent = item.prodotto + " × " + item.qty + (item.stato ? " · " + item.stato : "");
+        items.append(row);
+      }
+      details.append(items);
+      list.append(details);
+    }
+  } catch {
+    if (registeredOrdersRequest === controller) status.textContent = "Registro non raggiungibile. Riprova.";
+  } finally {
+    clearTimeout(timeout);
+    if (registeredOrdersRequest === controller) {
+      registeredOrdersRequest = undefined;
+      button.disabled = false;
+    }
+  }
+}
+
 function openMyOrders(){
   if (!APP.user?.operatoreId) return;
   hideAllModals();
+  $("myOrdersForm").querySelector("button").disabled = false;
+  $("myOrdersStatus").textContent = "";
   const list = $("myOrdersList");
   list.replaceChildren();
   const key = orderStorageKey("history", APP.user.operatoreId);
