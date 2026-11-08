@@ -1872,8 +1872,7 @@ function updateInstallButton(){
   const installed = standaloneMode.matches || navigator.standalone === true;
   button.classList.toggle("hidden", installed || !(deferredPrompt || appleMobile || androidMobile));
   if (installed) {
-    hide("installHelp");
-    button.setAttribute("aria-expanded", "false");
+    $("installDialog").close();
   }
 }
 
@@ -1881,36 +1880,40 @@ window.addEventListener("beforeinstallprompt", event => {
   event.preventDefault();
   deferredPrompt = event;
   updateInstallButton();
+  if ($("installDialog").open) openInstallDialog();
 });
 
 window.addEventListener("appinstalled", () => {
   deferredPrompt = null;
   hide("installBtn");
-  hide("installHelp");
-  $("installBtn").setAttribute("aria-expanded", "false");
+  $("installDialog").close();
 });
 
 standaloneMode.addEventListener?.("change", updateInstallButton);
 
+function openInstallDialog(){
+  const dialog = $("installDialog");
+  $("installHelp").textContent = deferredPrompt
+    ? "Aggiungi Magazzini Dussmann alla schermata Home per aprirla con un tocco."
+    : appleMobile
+      ? "In Safari, apri Condividi → Aggiungi alla schermata Home. Attiva «Apri come app web» se disponibile, poi tocca Aggiungi."
+      : "In Chrome, apri il menu ⋮ e scegli «Installa app» oppure «Aggiungi a schermata Home».";
+  $("installConfirm").classList.toggle("hidden", !deferredPrompt);
+  if (!dialog.open) dialog.showModal();
+}
+
 async function installApp(){
   const prompt = deferredPrompt;
-  if (prompt) {
-    deferredPrompt = null;
-    try {
-      await prompt.prompt();
-      return;
-    } catch {
-      updateInstallButton();
-    }
+  if (!prompt) return;
+  deferredPrompt = null;
+  $("installDialog").close();
+  try {
+    const choice = await prompt.prompt();
+    if (choice?.outcome === "dismissed") updateInstallButton();
+  } catch {
+    updateInstallButton();
+    openInstallDialog();
   }
-
-  const help = $("installHelp");
-  const expanded = help.classList.contains("hidden");
-  help.textContent = appleMobile
-    ? "In Safari, apri Condividi → Aggiungi alla schermata Home. Attiva «Apri come app web» se disponibile, poi tocca Aggiungi."
-    : "In Chrome, apri il menu ⋮ e scegli «Installa app» oppure «Aggiungi a schermata Home».";
-  help.classList.toggle("hidden", !expanded);
-  $("installBtn").setAttribute("aria-expanded", String(expanded));
 }
 
 async function setupAppUpdates(){
