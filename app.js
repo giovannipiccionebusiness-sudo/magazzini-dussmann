@@ -78,7 +78,6 @@ function restoreSessionIfAvailable(){
   hide("loginCard");
   show("appCard");
   setMsg("mainMsg", "Sessione ripristinata.", "ok");
-  setupAdminDashboardButton();
 
   return true;
 }
@@ -185,7 +184,6 @@ async function doLogin(){
     show("appCard");
 
     setMsg("mainMsg", "Accesso effettuato correttamente.", "ok");
-    setupAdminDashboardButton();
     stopProgress("Accesso completato");
 
   } catch (err) {
@@ -203,7 +201,7 @@ function logoutApp(){
   show("loginCard");
   hide("appCard");
   hide("movementCard");
-  hide("ddtModal");
+  closeDdtModal();
   hide("orderModal");
   hide("receiveModal");
   hide("deliveryModal");
@@ -226,7 +224,7 @@ function loadSedi(sedi){
 
 function hideAllModals(){
   hide("movementCard");
-  hide("ddtModal");
+  closeDdtModal();
   hide("orderModal");
   hide("receiveModal");
   hide("deliveryModal");
@@ -270,10 +268,11 @@ function openDdtModal(){
   $("ddtOperatoreBox").textContent = "Operatore: " + APP.user.nome;
   $("ddtSedeBox").textContent = "Sede: " + sede;
 
+  $("ddtCamera").value = "";
   $("ddtFile").value = "";
   $("ddtNote").value = "";
-  $("ddtPreview").src = "";
-
+  $("ddtFileName").hidden = true;
+  $("ddtPreview").removeAttribute("src");
   hide("ddtPreview");
   hide("ddtMsg");
 
@@ -282,16 +281,109 @@ function openDdtModal(){
 }
 
 function closeDdtModal(){
+  closeDdtCamera();
+  hide("ddtNativeCameraBtn");
   hide("ddtModal");
 }
 
+let ddtCameraRequest;
+
+async function openDdtCamera(){
+  if (ddtCameraRequest) return;
+
+  const request = {};
+  ddtCameraRequest = request;
+  const video = $("ddtCameraVideo");
+  $("ddtCaptureBtn").disabled = true;
+  hide("ddtNativeCameraBtn");
+  hide("ddtMsg");
+  show("ddtCameraPanel");
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: "environment" } }
+    });
+
+    if (ddtCameraRequest !== request) {
+      stream.getTracks().forEach(track => track.stop());
+      return;
+    }
+
+    video.srcObject = stream;
+    await video.play();
+    if (ddtCameraRequest === request) $("ddtCaptureBtn").disabled = false;
+  } catch {
+    if (ddtCameraRequest !== request) return;
+    closeDdtCamera();
+    setMsg("ddtMsg", "Fotocamera integrata non disponibile. Puoi usare la fotocamera del telefono o caricare un’immagine.", "info");
+    show("ddtNativeCameraBtn");
+  }
+}
+
+function closeDdtCamera(){
+  ddtCameraRequest = undefined;
+  const video = $("ddtCameraVideo");
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach(track => track.stop());
+    video.srcObject = null;
+  }
+  hide("ddtCameraPanel");
+}
+
+function captureDdtPhoto(){
+  const request = ddtCameraRequest;
+  const video = $("ddtCameraVideo");
+  if (!request || !video.videoWidth || !video.videoHeight) return;
+
+  const captureButton = $("ddtCaptureBtn");
+  captureButton.disabled = true;
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0);
+
+  canvas.toBlob(blob => {
+    if (ddtCameraRequest !== request) return;
+    if (!blob) {
+      captureButton.disabled = false;
+      setMsg("ddtMsg", "Foto non acquisita. Riprova.", "err");
+      return;
+    }
+
+    const files = new DataTransfer();
+    files.items.add(new File([blob], "ddt.jpg", { type: "image/jpeg" }));
+    const input = $("ddtFile");
+    input.files = files.files;
+    previewDdt(input);
+  }, "image/jpeg", 0.92);
+}
+
+window.addEventListener("pagehide", closeDdtCamera);
+
 function previewDdt(input){
-  const file = input.files && input.files[0];
+  const file = input.files[0];
   if (!file) return;
+
+  const fileInput = $("ddtFile");
+  const cameraInput = $("ddtCamera");
+  if (input === cameraInput) {
+    fileInput.files = cameraInput.files;
+  }
+  cameraInput.value = "";
+  closeDdtCamera();
+  hide("ddtNativeCameraBtn");
+
+  const fileName = $("ddtFileName");
+  fileName.textContent = file.name;
+  fileName.hidden = false;
+  hide("ddtMsg");
+  hide("ddtPreview");
 
   const reader = new FileReader();
 
   reader.onload = function(e){
+    if (fileInput.files[0] !== file) return;
     $("ddtPreview").src = e.target.result;
     show("ddtPreview");
   };
@@ -1309,18 +1401,6 @@ function postReceiveForm(payload){
 
 let chartConsumiSede = null;
 let chartTopProdotti = null;
-
-function setupAdminDashboardButton(){
-  const btn = $("adminDashboardBtn");
-
-  if (!btn || !APP.user) return;
-
-  if (APP.user.role === "ADMIN") {
-    btn.classList.remove("hidden");
-  } else {
-    btn.classList.add("hidden");
-  }
-}
 
 function openAdminDashboard(){
   hideAllModals();

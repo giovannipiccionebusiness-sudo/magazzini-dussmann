@@ -58,15 +58,8 @@
       <label for="sede">Sede</label>
       <select id="sede"></select>
       
-      <button class="btn btn-success" onclick="openReceiveModal()">Ricevi Merce</button>
-      <button class="btn btn-danger" onclick="openDeliveryModal()">Consegna Materiale</button>
       <button class="btn btn-warning" onclick="openDdtModal()">Carica DDT</button>
       <button class="btn btn-primary" onclick="openOrderModal()">Nuovo Ordine</button>
-      <button id="adminDashboardBtn"
-        class="btn btn-admin hidden"
-        onclick="openAdminDashboard()">
-  📊 Dashboard Admin
-</button>
 
       <button id="installBtn" class="btn btn-light hidden" onclick="installApp()">
         Installa app sul telefono
@@ -140,9 +133,21 @@
         <div class="meta-box" id="ddtOperatoreBox">Operatore: --</div>
         <div class="meta-box" id="ddtSedeBox">Sede: --</div>
 
-        <label for="ddtFile">Foto DDT</label>
-        <input id="ddtFile" type="file" accept="image/*" capture="environment" onchange="previewDdt(this)" />
-
+        <button type="button" class="btn btn-primary" onclick="openDdtCamera()">Scatta foto</button>
+        <button type="button" class="btn btn-light" onclick="document.getElementById('ddtFile').click()">Carica file</button>
+        <input id="ddtCamera" type="file" accept="image/*" capture="environment" hidden onchange="previewDdt(this)" />
+        <input id="ddtFile" type="file" accept="image/*" hidden onchange="previewDdt(this)" />
+        <div id="ddtCameraPanel" class="hidden">
+          <p id="ddtCameraHint">Inquadra tutto il DDT dentro il riquadro blu.</p>
+          <div class="ddt-camera-frame">
+            <video id="ddtCameraVideo" autoplay muted playsinline aria-describedby="ddtCameraHint"></video>
+            <div class="ddt-camera-guide" aria-hidden="true"></div>
+          </div>
+          <button id="ddtCaptureBtn" type="button" class="btn btn-primary" onclick="captureDdtPhoto()" disabled>Scatta</button>
+          <button type="button" class="btn btn-light" onclick="closeDdtCamera()">Chiudi fotocamera</button>
+        </div>
+        <button id="ddtNativeCameraBtn" type="button" class="btn btn-light hidden" onclick="document.getElementById('ddtCamera').click()">Usa la fotocamera del telefono</button>
+        <p id="ddtFileName" role="status" hidden></p>
         <img id="ddtPreview" class="preview hidden" alt="Anteprima DDT" />
 
         <label for="ddtNote">Note</label>
