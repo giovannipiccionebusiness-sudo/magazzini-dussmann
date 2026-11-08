@@ -198,8 +198,11 @@ async function doLogin(){
   }
 }
 
+function changeOperator(){
+  if (APP.user?.role === "ADMIN") logoutApp();
+}
+
 function logoutApp(){
-  if (APP.user?.role !== "ADMIN") return;
   stopScanner();
   clearLoginSession();
 
