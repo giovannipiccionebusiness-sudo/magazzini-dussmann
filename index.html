@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="it" data-app-version="1.8.0">
+<html lang="it" data-app-version="1.8.1">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Magazzini Dussmann</title>
 
-  <link rel="stylesheet" href="style.css?v=1.8.0" />
+  <link rel="stylesheet" href="style.css?v=1.8.1" />
   <link rel="manifest" href="manifest.json" />
 
   <meta name="theme-color" content="#1f4e78" />
@@ -191,7 +191,6 @@
           <div id="orderCatalog">
             <div class="order-filters">
               <input id="orderSearch" type="search" aria-label="Cerca prodotto per nome o codice" placeholder="Cerca nome o codice" oninput="filterOrderProducts()" />
-              <label class="order-filter-check"><input id="orderStockFilter" type="checkbox" onchange="filterOrderProducts()" /> Solo sottoscorta</label>
             </div>
             <div id="orderList"></div>
             <p id="orderEmpty" class="msg info hidden" role="status"></p>
@@ -320,7 +319,7 @@
 
   </div>
 
-  <footer class="app-version">Magazzini Dussmann · Versione 1.8.0</footer>
+  <footer class="app-version">Magazzini Dussmann · Versione 1.8.1</footer>
 
   <dialog id="appUpdate" class="app-update" aria-labelledby="appUpdateTitle">
     <h2 id="appUpdateTitle">Aggiornamento disponibile</h2>
@@ -329,6 +328,6 @@
     <button id="appUpdateLater" type="button" class="mag-text-button">Più tardi</button>
   </dialog>
 
-  <script src="app.js?v=1.8.0"></script>
+  <script src="app.js?v=1.8.1"></script>
 </body>
 </html>

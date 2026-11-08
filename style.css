@@ -624,21 +624,6 @@ button{
   margin-bottom: 8px;
 }
 
-.order-filter-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  min-height: 44px;
-  font-size: .875rem;
-}
-
-.order-filter-check input {
-  width: 20px;
-  height: 20px;
-  accent-color: #1f4e78;
-}
-
 .order-compact {
   display: flex;
   align-items: flex-start;
@@ -650,8 +635,10 @@ button{
 }
 
 .order-thumbnail {
-  flex: 0 0 56px;
-  height: 56px;
+  flex: 0 0 clamp(88px, 25vw, 120px);
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
   padding: 3px;
   margin: 0;
   background: #f4f7fb;
@@ -673,21 +660,6 @@ button{
   margin: 0 0 5px;
   font-size: .95rem;
   overflow-wrap: anywhere;
-}
-
-.order-stock-badge {
-  display: inline-block;
-  padding: 3px 7px;
-  margin-bottom: 5px;
-  border-radius: 6px;
-  background: #fde5e5;
-  color: #9d1f1f;
-  font-size: .75rem;
-  font-weight: bold;
-}
-
-.order-stock-badge[hidden] {
-  display: none;
 }
 
 .order-controls {
@@ -720,7 +692,6 @@ button{
   cursor: default;
 }
 
-.order-proposed,
 .order-details {
   font-size: .8rem;
 }

@@ -1139,7 +1139,6 @@ async function openOrderModal(){
     currentOrder = order;
     $("orderSedeBox").textContent = sede;
     $("orderSearch").value = "";
-    $("orderStockFilter").checked = false;
     $("orderNote").value = "";
     $("orderList").replaceChildren();
     hide("orderEmpty");
@@ -1182,23 +1181,21 @@ function renderOrderProducts(products){
     const minOrdine = orderQuantityRule(p.minOrdine);
     const multiploOrdine = orderQuantityRule(p.multiploOrdine);
     const first = Math.ceil(minOrdine / multiploOrdine) * multiploOrdine;
-    const proposed = Math.max(first, Math.ceil(orderQuantityRule(p.qtaSuggerita || minOrdine) / multiploOrdine) * multiploOrdine);
     return {
-      p, minOrdine, multiploOrdine, first, proposed, qty: 0,
+      p, minOrdine, multiploOrdine, first, qty: 0,
       low: Number(p.giacenza || 0) <= Number(p.scortaMinima || 0),
       supplier: p.fornitore || "SENZA FORNITORE"
     };
   }).sort((a, b) => Number(b.low) - Number(a.low));
 
   const cards = currentOrder.products.map(item => {
-    const { p, low, supplier, multiploOrdine } = item;
+    const { p, supplier, multiploOrdine } = item;
     const card = document.createElement("article");
     card.className = "order-compact";
     card.innerHTML = `
       <button type="button" class="order-thumbnail" hidden><img alt="" loading="lazy" /></button>
       <div class="order-product">
         <h3 class="order-title"></h3>
-        <span class="order-stock-badge" hidden>Sotto scorta</span>
         <div class="order-controls"></div>
         <details class="order-details">
           <summary>Dettagli</summary>
@@ -1206,7 +1203,6 @@ function renderOrderProducts(products){
         </details>
       </div>`;
     card.querySelector("h3").textContent = p.prodotto;
-    card.querySelector(".order-stock-badge").hidden = !low;
     card.querySelector(".order-small").textContent =
       [p.barcode && "Codice " + p.barcode, "Fornitore " + supplier,
         multiploOrdine > 1 && "Multipli di " + multiploOrdine].filter(Boolean).join(" · ");
@@ -1227,12 +1223,6 @@ function renderOrderProducts(products){
 
     const controls = card.querySelector(".order-controls");
     item.catalogQty = createOrderStepper(item, controls);
-    const proposed = document.createElement("button");
-    proposed.type = "button";
-    proposed.className = "mag-text-button order-proposed";
-    proposed.textContent = "Usa quantità suggerita";
-    proposed.onclick = () => setOrderQty(item, item.proposed);
-    controls.append(proposed);
     item.card = card;
     return card;
   });
@@ -1245,16 +1235,14 @@ function renderOrderProducts(products){
 function filterOrderProducts(){
   if (!currentOrder?.ready) return;
   const search = $("orderSearch").value.trim().toLocaleLowerCase("it");
-  const onlyLow = $("orderStockFilter").checked;
   let visible = 0;
   currentOrder.products.forEach(item => {
-    const matches = (!onlyLow || item.low) &&
-      [item.p.prodotto, item.p.barcode].some(value => String(value || "").toLocaleLowerCase("it").includes(search));
+    const matches = [item.p.prodotto, item.p.barcode].some(value => String(value || "").toLocaleLowerCase("it").includes(search));
     item.card.hidden = !matches;
     if (matches) visible++;
   });
   $("orderEmpty").textContent = currentOrder.products.length
-    ? "Nessun prodotto corrisponde ai filtri." : "Nessun prodotto disponibile per questa sede.";
+    ? "Nessun prodotto corrisponde alla ricerca." : "Nessun prodotto disponibile per questa sede.";
   if (visible) hide("orderEmpty");
   else show("orderEmpty");
 }
