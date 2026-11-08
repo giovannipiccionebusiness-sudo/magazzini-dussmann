@@ -48,18 +48,27 @@
     </div>
 
     <div class="card hidden" id="appCard">
-      <h1>Magazzini Dussmann</h1>
-
-      <div class="chips">
-        <span class="chip" id="chipOperatore">Operatore: --</span>
-        <span class="chip" id="chipRuolo">Ruolo: --</span>
-      </div>
+      <header class="mag-home-header">
+        <h1>Magazzini Dussmann</h1>
+        <div class="mag-home-account">
+          <span id="chipOperatore">Operatore: --</span>
+          <span id="chipRuolo">Ruolo: --</span>
+        </div>
+      </header>
 
       <label for="sede">Sede</label>
       <select id="sede"></select>
-      
-      <button class="btn btn-warning" onclick="openDdtModal()">Carica DDT</button>
-      <button class="btn btn-primary" onclick="openOrderModal()">Nuovo Ordine</button>
+
+      <div class="mag-home-actions">
+        <button class="btn btn-primary" onclick="openOrderModal()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5H5v16h14V5h-3M9 3h6v4H9zM12 10v7m-3-3h6"/></svg>
+          Nuovo Ordine
+        </button>
+        <button class="btn btn-light" onclick="openDdtModal()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v5h4M12 17v-6m-3 3 3-3 3 3"/></svg>
+          Carica DDT
+        </button>
+      </div>
 
       <button id="installBtn" class="btn btn-light hidden" onclick="installApp()">
         Installa app sul telefono
@@ -69,9 +78,8 @@
         Su iPhone: apri con Safari, premi Condividi e poi “Aggiungi alla schermata Home”.
       </div>
 
-      <button class="btn btn-light" onclick="logoutApp()">Cambia operatore</button>
-
-      <div id="mainMsg" class="msg info">Seleziona la sede e scegli l’operazione.</div>
+      <div id="mainMsg" class="msg info" role="status">Seleziona la sede e scegli l’operazione.</div>
+      <button type="button" class="mag-text-button mag-change-user" onclick="logoutApp()">Cambia operatore</button>
     </div>
 
     <div id="movementCard" class="modal hidden">
@@ -123,41 +131,49 @@
       </div>
     </div>
 
-    <div id="ddtModal" class="modal hidden">
+    <div id="ddtModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="ddtTitle">
       <div class="modal-card">
         <div class="modal-head">
-          <h2>Carica DDT</h2>
-          <button class="modal-close" onclick="closeDdtModal()">×</button>
+          <h2 id="ddtTitle">Carica DDT</h2>
+          <button type="button" class="modal-close" aria-label="Chiudi" onclick="closeDdtModal()">×</button>
         </div>
 
-        <button type="button" class="btn btn-primary" onclick="openDdtCamera()">Scatta foto</button>
-        <button type="button" class="btn btn-light" onclick="document.getElementById('ddtFile').click()">Carica file</button>
-        <input id="ddtCamera" type="file" accept="image/*" capture="environment" hidden onchange="previewDdt(this)" />
-        <input id="ddtFile" type="file" accept="image/*" hidden onchange="previewDdt(this)" />
-        <div id="ddtCameraPanel" class="hidden">
-          <p id="ddtCameraHint">Inquadra tutto il DDT dentro il riquadro blu.</p>
-          <div class="ddt-camera-frame">
-            <video id="ddtCameraVideo" autoplay muted playsinline aria-describedby="ddtCameraHint"></video>
-            <div class="ddt-camera-guide" aria-hidden="true"></div>
+        <div class="ddt-scroll" id="ddtScroll">
+          <div id="ddtSourceActions" class="ddt-source-actions">
+            <button type="button" class="btn btn-primary" onclick="openDdtCamera()">Scatta foto</button>
+            <button type="button" class="btn btn-light" onclick="document.getElementById('ddtFile').click()">Carica file</button>
           </div>
-          <button id="ddtCaptureBtn" type="button" class="btn btn-primary" onclick="captureDdtPhoto()" disabled>Scatta</button>
-          <button type="button" class="btn btn-light" onclick="closeDdtCamera()">Chiudi fotocamera</button>
+          <input id="ddtCamera" type="file" accept="image/*" capture="environment" hidden onchange="previewDdt(this)" />
+          <input id="ddtFile" type="file" accept="image/*" hidden onchange="previewDdt(this)" />
+          <div id="ddtCameraPanel" class="hidden">
+            <p id="ddtCameraHint">Inquadra tutto il DDT dentro il riquadro blu.</p>
+            <div class="ddt-camera-frame">
+              <video id="ddtCameraVideo" autoplay muted playsinline aria-describedby="ddtCameraHint"></video>
+              <div class="ddt-camera-guide" aria-hidden="true"></div>
+            </div>
+            <button id="ddtCaptureBtn" type="button" class="btn btn-primary" onclick="captureDdtPhoto()" disabled>Scatta</button>
+            <button type="button" class="btn btn-light" onclick="closeDdtCamera()">Chiudi fotocamera</button>
+          </div>
+          <button id="ddtNativeCameraBtn" type="button" class="btn btn-light hidden" onclick="document.getElementById('ddtCamera').click()">Usa la fotocamera del telefono</button>
+          <div id="ddtReview" class="hidden">
+            <img id="ddtPreview" class="preview hidden" alt="Anteprima DDT" />
+            <div id="ddtScanOptions" class="ddt-scan-options hidden" role="group" aria-label="Immagine da salvare">
+              <button id="ddtOriginalBtn" type="button" class="btn btn-light" aria-pressed="false" onclick="showDdtScan(false)">Originale</button>
+              <button id="ddtImprovedBtn" type="button" class="btn btn-light" aria-pressed="true" onclick="showDdtScan(true)">Migliorata</button>
+            </div>
+
+            <button id="ddtReplaceBtn" type="button" class="mag-text-button" aria-controls="ddtSourceActions" aria-expanded="false" onclick="toggleDdtSources()">Sostituisci foto</button>
+            <details id="ddtNotes" class="ddt-notes">
+              <summary>Note <span>facoltative</span></summary>
+              <textarea id="ddtNote" aria-label="Note" placeholder="Numero bolla o note"></textarea>
+            </details>
+          </div>
+          <div id="ddtMsg" class="msg info hidden" role="status"></div>
         </div>
-        <button id="ddtNativeCameraBtn" type="button" class="btn btn-light hidden" onclick="document.getElementById('ddtCamera').click()">Usa la fotocamera del telefono</button>
-        <p id="ddtFileName" role="status" hidden></p>
-        <img id="ddtPreview" class="preview hidden" alt="Anteprima DDT" />
-        <div id="ddtScanOptions" class="ddt-scan-options hidden" role="group" aria-label="Immagine da salvare">
-          <button id="ddtOriginalBtn" type="button" class="btn btn-light" aria-pressed="false" onclick="showDdtScan(false)">Originale</button>
-          <button id="ddtImprovedBtn" type="button" class="btn btn-light" aria-pressed="true" onclick="showDdtScan(true)">Migliorata</button>
+
+        <div id="ddtFooter" class="ddt-footer hidden">
+          <button id="ddtSaveBtn" type="button" class="btn btn-primary" onclick="saveDdt()">Salva DDT</button>
         </div>
-
-        <label for="ddtNote">Note</label>
-        <textarea id="ddtNote" placeholder="Numero bolla o note"></textarea>
-
-        <button id="ddtSaveBtn" class="btn btn-primary" onclick="saveDdt()">Salva DDT</button>
-        <button class="btn btn-light" onclick="closeDdtModal()">Chiudi</button>
-
-        <div id="ddtMsg" class="msg info hidden"></div>
       </div>
     </div>
 

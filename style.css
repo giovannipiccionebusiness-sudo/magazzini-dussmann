@@ -447,3 +447,150 @@ button{
   max-width:520px;
   width:100%;
 }
+
+/* Magazzini home and DDT review */
+.mag-home-header h1 {
+  margin: 0 0 8px;
+  font-size: clamp(1.3rem, 5.4vw, 1.8rem);
+  line-height: 1.15;
+}
+
+.mag-home-account {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: #52697a;
+  font-size: .875rem;
+}
+
+.mag-home-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.mag-home-actions button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  margin: 0;
+  text-align: left;
+}
+
+.mag-home-actions svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+.mag-text-button {
+  width: auto;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 4px;
+  background: transparent;
+  color: #1f4e78;
+  font-size: .875rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.mag-change-user {
+  display: block;
+  margin: 6px auto 0;
+}
+
+#ddtModal .modal-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  box-sizing: border-box;
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow: hidden;
+}
+
+#ddtModal .modal-head {
+  padding: 10px 14px;
+  margin: 0;
+  border-bottom: 1px solid #e4ebf2;
+}
+
+#ddtModal .modal-close {
+  margin: 0;
+}
+
+.ddt-scroll {
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px 12px 14px;
+}
+
+.ddt-source-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ddt-source-actions button,
+.ddt-scan-options button {
+  min-height: 44px;
+  margin: 0;
+  padding: 9px 6px;
+  font-size: .875rem;
+}
+
+#ddtPreview {
+  display: block;
+  width: 100%;
+  max-height: none;
+  margin: 0 0 8px;
+  box-sizing: border-box;
+  object-fit: contain;
+  background: #f4f7fb;
+  border: 1px solid #e4ebf2;
+  border-radius: 10px;
+}
+
+.ddt-source-actions:not(.hidden) ~ #ddtReview {
+  margin-top: 12px;
+}
+
+.ddt-notes {
+  border-top: 1px solid #e4ebf2;
+  padding-top: 8px;
+}
+
+.ddt-notes summary {
+  min-height: 36px;
+  line-height: 36px;
+  color: #1f4e78;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.ddt-notes summary span {
+  margin-left: 5px;
+  color: #52697a;
+  font-size: .8rem;
+  font-weight: normal;
+}
+
+.ddt-footer {
+  padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+  border-top: 1px solid #e4ebf2;
+  background: #fff;
+}
+
+.ddt-footer button {
+  margin: 0;
+}
+
+.ddt-footer button:disabled {
+  opacity: .6;
+}

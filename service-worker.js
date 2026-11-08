@@ -1,4 +1,4 @@
-const CACHE_NAME = "magazzini-dussmann-v5";
+const CACHE_NAME = "magazzini-dussmann-v6";
 
 const FILES_TO_CACHE = [
   "./",

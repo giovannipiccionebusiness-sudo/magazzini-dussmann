@@ -269,13 +269,14 @@ function openDdtModal(){
   $("ddtFile").value = "";
   $("ddtSaveBtn").disabled = false;
   $("ddtNote").value = "";
-  $("ddtFileName").hidden = true;
+  $("ddtNotes").open = false;
   $("ddtPreview").removeAttribute("src");
   hide("ddtPreview");
   hide("ddtMsg");
 
   hideAllModals();
   show("ddtModal");
+  $("ddtScroll").scrollTop = 0;
 }
 
 function closeDdtModal(){
@@ -367,6 +368,24 @@ function clearDdtScan(){
   ddtScan = undefined;
   hide("ddtScanOptions");
   hide("ddtPreview");
+  hide("ddtReview");
+  hide("ddtFooter");
+  show("ddtSourceActions");
+  $("ddtReplaceBtn").setAttribute("aria-expanded", "false");
+}
+
+function toggleDdtSources(){
+  const button = $("ddtReplaceBtn");
+  const expanded = button.getAttribute("aria-expanded") === "true";
+  button.setAttribute("aria-expanded", String(!expanded));
+  if (expanded) {
+    closeDdtCamera();
+    hide("ddtNativeCameraBtn");
+    hide("ddtSourceActions");
+  } else {
+    show("ddtSourceActions");
+    $("ddtScroll").scrollTop = 0;
+  }
 }
 
 async function previewDdt(input){
@@ -379,9 +398,8 @@ async function previewDdt(input){
   hide("ddtNativeCameraBtn");
   clearDdtScan();
 
-  const name = $("ddtFileName");
-  name.textContent = file.name;
-  name.hidden = false;
+  hide("ddtSourceActions");
+  $("ddtScroll").scrollTop = 0;
 
   const saveButton = $("ddtSaveBtn");
   saveButton.disabled = true;
@@ -408,7 +426,11 @@ async function previewDdt(input){
     showDdtScan(false);
     setMsg("ddtMsg", "È stata mantenuta l’immagine originale.", "info");
   } finally {
-    if (ddtScan === scan) saveButton.disabled = false;
+    if (ddtScan === scan) {
+      saveButton.disabled = false;
+      show("ddtReview");
+      show("ddtFooter");
+    }
   }
 }
 
