@@ -1993,7 +1993,27 @@ async function setupAppUpdates(){
   }
 }
 
-window.addEventListener("load", () => {
+function offerAppInstallation(){
+  if ($("installBtn").classList.contains("hidden")) return;
+
+  const update = $("appUpdate");
+  if (update.open) {
+    update.addEventListener("close", offerAppInstallation, { once: true });
+    return;
+  }
+
+  try {
+    const key = "magazzini_install_offer";
+    if (localStorage.getItem(key)) return;
+    openInstallDialog();
+    localStorage.setItem(key, "shown");
+  } catch {
+    // The manual installation button remains available.
+  }
+}
+
+window.addEventListener("load", async () => {
   updateInstallButton();
-  setupAppUpdates();
+  await setupAppUpdates();
+  offerAppInstallation();
 });
