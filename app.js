@@ -2002,14 +2002,7 @@ function offerAppInstallation(){
     return;
   }
 
-  try {
-    const key = "magazzini_install_offer";
-    if (localStorage.getItem(key)) return;
-    openInstallDialog();
-    localStorage.setItem(key, "shown");
-  } catch {
-    // The manual installation button remains available.
-  }
+  openInstallDialog();
 }
 
 window.addEventListener("load", async () => {
