@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="it" data-app-version="1.8.1">
+<html lang="it" data-app-version="1.8.2">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Magazzini Dussmann</title>
 
-  <link rel="stylesheet" href="style.css?v=1.8.1" />
+  <link rel="stylesheet" href="style.css?v=1.8.2" />
   <link rel="manifest" href="manifest.json" />
 
   <meta name="theme-color" content="#1f4e78" />
@@ -79,7 +79,7 @@
       </div>
 
       <div id="mainMsg" class="msg info" role="status">Seleziona la sede e scegli l’operazione.</div>
-      <button type="button" class="mag-text-button mag-change-user" onclick="logoutApp()">Cambia operatore</button>
+      <button type="button" id="changeOperatorBtn" class="mag-text-button mag-change-user hidden" onclick="logoutApp()">Cambia operatore</button>
     </div>
 
     <div id="movementCard" class="modal hidden">
@@ -319,7 +319,7 @@
 
   </div>
 
-  <footer class="app-version">Magazzini Dussmann · Versione 1.8.1</footer>
+  <footer class="app-version">Magazzini Dussmann · Versione 1.8.2</footer>
 
   <dialog id="appUpdate" class="app-update" aria-labelledby="appUpdateTitle">
     <h2 id="appUpdateTitle">Aggiornamento disponibile</h2>
@@ -328,6 +328,6 @@
     <button id="appUpdateLater" type="button" class="mag-text-button">Più tardi</button>
   </dialog>
 
-  <script src="app.js?v=1.8.1"></script>
+  <script src="app.js?v=1.8.2"></script>
 </body>
 </html>

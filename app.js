@@ -66,11 +66,16 @@ function clearLoginSession(){
   localStorage.removeItem("magazzino_user");
 }
 
+function updateChangeOperatorButton(){
+  $("changeOperatorBtn").classList.toggle("hidden", APP.user?.role !== "ADMIN");
+}
+
 function restoreSessionIfAvailable(){
   const saved = loadLoginSession();
   if (!saved) return false;
 
   APP.user = saved;
+  updateChangeOperatorButton();
   $("chipOperatore").textContent = "Operatore: " + (saved.nome || "--");
   $("chipRuolo").textContent = "Ruolo: " + (saved.role || "--");
   loadSedi(saved.sediDisponibili || []);
@@ -173,6 +178,7 @@ async function doLogin(){
     if (!data.ok) throw new Error(data.error || "Login non riuscito");
 
     APP.user = data;
+    updateChangeOperatorButton();
     saveLoginSession(data);
 
     $("chipOperatore").textContent = "Operatore: " + (data.nome || "--");
@@ -193,10 +199,12 @@ async function doLogin(){
 }
 
 function logoutApp(){
+  if (APP.user?.role !== "ADMIN") return;
   stopScanner();
   clearLoginSession();
 
   APP.user = null;
+  updateChangeOperatorButton();
 
   show("loginCard");
   hide("appCard");
