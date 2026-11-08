@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="it" data-app-version="1.8.12">
+<html lang="it" data-app-version="1.8.13">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Magazzini Dussmann</title>
 
-  <link rel="stylesheet" href="style.css?v=1.8.12" />
+  <link rel="stylesheet" href="style.css?v=1.8.13" />
   <link rel="manifest" href="manifest.json" />
 
   <meta name="theme-color" content="#1f4e78" />
@@ -45,7 +45,7 @@
 
       <button class="btn btn-primary" onclick="doLogin()">Entra</button>
       <div id="loginMsg" class="msg info">Seleziona il tuo nome e inserisci il PIN.</div>
-      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.12" width="900" height="507" alt="" />
+      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.13" width="900" height="507" alt="" />
     </div>
 
     <div class="card hidden" id="appCard">
@@ -73,7 +73,7 @@
 
       <button type="button" class="mag-text-button" onclick="openMyOrders()">I miei ordini</button>
 
-      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.12" width="900" height="507" alt="" />
+      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.13" width="900" height="507" alt="" />
 
       <div id="mainMsg" class="msg info" role="status">Seleziona la sede e scegli l’operazione.</div>
       <button type="button" id="changeOperatorBtn" class="mag-text-button mag-change-user hidden" onclick="changeOperator()">Cambia operatore</button>
@@ -218,12 +218,8 @@
           <h2 id="myOrdersTitle">I miei ordini</h2>
           <button type="button" class="modal-close" aria-label="Chiudi" onclick="closeMyOrders()">×</button>
         </div>
-        <form id="myOrdersForm" onsubmit="loadRegisteredOrders(event)">
-          <label for="myOrdersPin">PIN operatore</label>
-          <input id="myOrdersPin" type="password" required autocomplete="off" />
-          <button type="submit" class="btn btn-primary">Carica dal registro</button>
-        </form>
         <p id="myOrdersStatus" role="status"></p>
+        <button id="myOrdersReconnect" type="button" class="btn btn-light hidden" onclick="logoutApp()">Accedi di nuovo</button>
         <div id="registeredOrdersList"></div>
         <details>
           <summary>Invii da questo browser, da verificare</summary>
@@ -340,7 +336,7 @@
 
   <footer class="app-version">
     <button id="installBtn" type="button" class="mag-text-button hidden" aria-haspopup="dialog" aria-controls="installDialog" onclick="openInstallDialog()">Installa app</button>
-    <div>Magazzini Dussmann · Versione 1.8.12</div>
+    <div>Magazzini Dussmann · Versione 1.8.13</div>
   </footer>
 
   <dialog id="installDialog" class="app-update" aria-labelledby="installTitle" aria-describedby="installHelp">
@@ -359,6 +355,6 @@
     <button id="appUpdateLater" type="button" class="mag-text-button">Più tardi</button>
   </dialog>
 
-  <script src="app.js?v=1.8.12"></script>
+  <script src="app.js?v=1.8.13"></script>
 </body>
 </html>

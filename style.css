@@ -805,3 +805,48 @@ button{
   height: auto;
   margin: 14px auto 0;
 }
+
+#myOrdersModal .modal-card {
+  box-sizing: border-box;
+  max-height: calc(100dvh - 32px);
+  overflow-x: hidden;
+}
+
+.my-order-card {
+  margin: 0 0 8px;
+  padding: 12px;
+  border: 1px solid #e4ebf2;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+
+.my-order-card summary {
+  cursor: pointer;
+  color: #1f4e78;
+}
+
+.my-order-meta {
+  display: block;
+  margin: 4px 0 0;
+  font-size: .85rem;
+  color: #52697a;
+}
+
+.my-order-card ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.my-order-card li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 8px;
+  padding: 8px 0;
+  border-top: 1px solid #e4ebf2;
+}
+
+.my-order-card li small {
+  grid-column: 1 / -1;
+  color: #52697a;
+}

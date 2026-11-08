@@ -171,6 +171,7 @@ async function doLogin(){
 
     const data = await jsonpRequest({
       action: "login",
+      orderHistorySession: "1",
       operatoreId: operatoreId,
       pin: pin
     });
@@ -1171,24 +1172,24 @@ let registeredOrdersRequest;
 function closeMyOrders(){
   registeredOrdersRequest?.abort();
   registeredOrdersRequest = undefined;
-  $("myOrdersPin").value = "";
+  hide("myOrdersReconnect");
   $("registeredOrdersList").replaceChildren();
   hide("myOrdersModal");
 }
 
-async function loadRegisteredOrders(event){
-  event.preventDefault();
+async function loadRegisteredOrders(){
   const user = APP.user;
   if (!user?.operatoreId || registeredOrdersRequest) return;
-  const controller = new AbortController();
-  registeredOrdersRequest = controller;
-  const button = $("myOrdersForm").querySelector("button");
   const status = $("myOrdersStatus");
   const list = $("registeredOrdersList");
-  const pin = $("myOrdersPin");
-  const body = new URLSearchParams({ action: "getRegisteredOrders", operatoreId: user.operatoreId, pin: pin.value });
-  pin.value = "";
-  button.disabled = true;
+  if (!user.orderHistoryToken) {
+    status.textContent = "Accedi di nuovo per collegare lo storico alla tua sessione.";
+    show("myOrdersReconnect");
+    return;
+  }
+  const controller = new AbortController();
+  registeredOrdersRequest = controller;
+  const body = new URLSearchParams({ action: "getRegisteredOrders", session: user.orderHistoryToken });
   status.textContent = "Caricamento dal registro…";
   list.replaceChildren();
   const timeout = setTimeout(() => controller.abort(), 20000);
@@ -1200,63 +1201,73 @@ async function loadRegisteredOrders(event){
     if (registeredOrdersRequest !== controller || APP.user !== user) return;
     if (!result.ok) {
       status.textContent = result.error || "Impossibile leggere il registro.";
+      if (result.sessionRequired) show("myOrdersReconnect");
       return;
     }
     status.textContent = result.orders.length ? "Ultimi ordini registrati" : "Nessun ordine nel registro.";
-    for (const order of result.orders) {
-      const details = document.createElement("details");
-      details.className = "order-compact";
-      const summary = document.createElement("summary");
-      const date = order.date ? new Date(order.date).toLocaleString("it-IT", { timeZone: "Europe/Rome" }) : "";
-      summary.textContent = [order.id, order.sede, order.fornitore, date].filter(Boolean).join(" · ");
-      details.append(summary);
-      const items = document.createElement("ul");
-      for (const item of order.items) {
-        const row = document.createElement("li");
-        row.textContent = item.prodotto + " × " + item.qty + (item.stato ? " · " + item.stato : "");
-        items.append(row);
-      }
-      details.append(items);
-      list.append(details);
-    }
+    for (const order of result.orders) list.append(renderMyOrder(order));
   } catch {
     if (registeredOrdersRequest === controller) status.textContent = "Registro non raggiungibile. Riprova.";
   } finally {
     clearTimeout(timeout);
     if (registeredOrdersRequest === controller) {
       registeredOrdersRequest = undefined;
-      button.disabled = false;
     }
   }
+}
+
+function renderMyOrder(order){
+  const details = document.createElement("details");
+  details.className = "my-order-card";
+  const summary = document.createElement("summary");
+  const title = document.createElement("strong");
+  title.textContent = order.fornitore || "Invio da verificare";
+  const meta = document.createElement("span");
+  meta.className = "my-order-meta";
+  const date = order.date ? new Date(order.date).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" }) : "";
+  meta.textContent = [order.sede, date].filter(Boolean).join(" · ");
+  summary.append(title, meta);
+  details.append(summary);
+
+  if (order.id) {
+    const id = document.createElement("p");
+    id.className = "my-order-meta";
+    id.textContent = "Ordine " + order.id;
+    details.append(id);
+  }
+
+  const items = document.createElement("ul");
+  for (const item of order.items) {
+    const row = document.createElement("li");
+    const name = document.createElement("span");
+    name.textContent = item.prodotto;
+    const qty = document.createElement("strong");
+    qty.textContent = "× " + (item.qty ?? item.qtaOrdine);
+    row.append(name, qty);
+    const detail = item.stato || item.fornitore;
+    if (detail) {
+      const label = document.createElement("small");
+      label.textContent = detail;
+      row.append(label);
+    }
+    items.append(row);
+  }
+  details.append(items);
+  return details;
 }
 
 function openMyOrders(){
   if (!APP.user?.operatoreId) return;
   hideAllModals();
-  $("myOrdersForm").querySelector("button").disabled = false;
   $("myOrdersStatus").textContent = "";
   const list = $("myOrdersList");
   list.replaceChildren();
   const key = orderStorageKey("history", APP.user.operatoreId);
   const orders = readOrderStorage(key, []);
   if (!orders.length) list.textContent = "Nessun invio registrato su questo browser.";
-  for (const order of orders) {
-    const details = document.createElement("details");
-    details.className = "order-compact";
-    const summary = document.createElement("summary");
-    const date = new Date(order.date).toLocaleString("it-IT", { timeZone: "Europe/Rome" });
-    summary.textContent = order.sede + " · " + date + " · Da verificare";
-    details.append(summary);
-    const items = document.createElement("ul");
-    for (const item of order.items) {
-      const row = document.createElement("li");
-      row.textContent = item.prodotto + " × " + item.qtaOrdine + " · " + item.fornitore;
-      items.append(row);
-    }
-    details.append(items);
-    list.append(details);
-  }
+  for (const order of orders) list.append(renderMyOrder(order));
   show("myOrdersModal");
+  loadRegisteredOrders();
 }
 
 let currentOrder;
