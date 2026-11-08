@@ -281,6 +281,7 @@ function openDdtModal(){
 function closeDdtModal(){
   closeDdtCamera();
   hide("ddtNativeCameraBtn");
+  clearDdtScan();
   hide("ddtModal");
 }
 
@@ -359,112 +360,193 @@ function captureDdtPhoto(){
 
 window.addEventListener("pagehide", closeDdtCamera);
 
+let ddtScan;
+
+function clearDdtScan(){
+  if (ddtScan) ddtScan.urls.forEach(url => URL.revokeObjectURL(url));
+  ddtScan = undefined;
+  hide("ddtScanOptions");
+  hide("ddtPreview");
+}
+
 async function previewDdt(input){
   const file = input.files[0];
   if (!file) return;
-
-  const fileInput = $("ddtFile");
   const cameraInput = $("ddtCamera");
-  if (input === cameraInput) {
-    fileInput.files = cameraInput.files;
-  }
+  if (input === cameraInput) $("ddtFile").files = cameraInput.files;
   cameraInput.value = "";
   closeDdtCamera();
   hide("ddtNativeCameraBtn");
+  clearDdtScan();
 
-  const fileName = $("ddtFileName");
-  fileName.textContent = file.name;
-  fileName.hidden = false;
-  hide("ddtMsg");
-  hide("ddtPreview");
+  const name = $("ddtFileName");
+  name.textContent = file.name;
+  name.hidden = false;
 
   const saveButton = $("ddtSaveBtn");
   saveButton.disabled = true;
-  setMsg("ddtMsg", "Ricerca dei bordi del foglio…", "info");
+  setMsg("ddtMsg", "Preparazione scansione…", "info");
+  const url = URL.createObjectURL(file);
+  const scan = { original: file, urls: [url] };
+  ddtScan = scan;
 
-  const originalUrl = URL.createObjectURL(file);
-  let selectedFile = file;
   try {
     const image = new Image();
-    image.src = originalUrl;
+    image.src = url;
     await image.decode();
-    const cropped = await cropDdtDocument(image);
-    if (fileInput.files[0] !== file) return;
-
-    const displayedFile = cropped ? new File([cropped], file.name.replace(/\.[^.]+$/, "") + ".jpg", {
-      type: "image/jpeg"
-    }) : file;
-    const reader = new FileReader();
-    const preview = await new Promise((resolve, reject) => {
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(displayedFile);
-    });
-    if (fileInput.files[0] !== file) return;
-
-    if (cropped) {
-      const transfer = new DataTransfer();
-      transfer.items.add(displayedFile);
-      fileInput.files = transfer.files;
-      selectedFile = fileInput.files[0];
-    }
-
-    $("ddtPreview").src = preview;
-    show("ddtPreview");
+    const canvas = scanDdtDocument(image);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.94));
+    if (ddtScan !== scan) return;
+    if (!blob) throw new Error("Scansione non disponibile");
+    scan.improved = new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+    scan.urls.push(URL.createObjectURL(scan.improved));
+    showDdtScan(true);
+    show("ddtScanOptions");
     hide("ddtMsg");
   } catch {
-    if (fileInput.files[0] === file) {
-      setMsg("ddtMsg", "Anteprima non disponibile. È stata mantenuta l’immagine originale.", "info");
-    }
+    if (ddtScan !== scan) return;
+    showDdtScan(false);
+    setMsg("ddtMsg", "È stata mantenuta l’immagine originale.", "info");
   } finally {
-    URL.revokeObjectURL(originalUrl);
-    if (fileInput.files[0] === selectedFile) {
-      saveButton.disabled = false;
-    }
+    if (ddtScan === scan) saveButton.disabled = false;
   }
 }
 
-async function cropDdtDocument(image){
+function showDdtScan(improved){
+  if (!ddtScan) return;
+  const file = improved ? ddtScan.improved : ddtScan.original;
+  const transfer = new DataTransfer();
+  transfer.items.add(file);
+  $("ddtFile").files = transfer.files;
+  $("ddtPreview").src = ddtScan.urls[Number(improved)];
+  $("ddtOriginalBtn").setAttribute("aria-pressed", String(!improved));
+  $("ddtImprovedBtn").setAttribute("aria-pressed", String(improved));
+  show("ddtPreview");
+}
+
+function scanDdtDocument(image){
+  const source = document.createElement("canvas");
+  const scale = Math.min(1, 1800 / Math.max(image.naturalWidth, image.naturalHeight));
+  source.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  source.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const sourceContext = source.getContext("2d");
+  sourceContext.fillStyle = "#fff";
+  sourceContext.fillRect(0, 0, source.width, source.height);
+  sourceContext.drawImage(image, 0, 0, source.width, source.height);
+
   const sample = document.createElement("canvas");
-  const scale = Math.min(1, 360 / Math.max(image.naturalWidth, image.naturalHeight));
-  sample.width = Math.round(image.naturalWidth * scale);
-  sample.height = Math.round(image.naturalHeight * scale);
-  const { width, height } = sample;
-  if (Math.min(width, height) < 40) return null;
-
+  const sampleScale = Math.min(1, 360 / Math.max(source.width, source.height));
+  sample.width = Math.max(1, Math.round(source.width * sampleScale));
+  sample.height = Math.max(1, Math.round(source.height * sampleScale));
   const context = sample.getContext("2d");
-  context.drawImage(image, 0, 0, width, height);
-  const pixels = context.getImageData(0, 0, width, height).data;
-  const detected = findDdtCorners(pixels, width, height);
-  if (!detected) return null;
-  const center = detected.reduce((sum, point) => ({ x: sum.x + point.x / 4, y: sum.y + point.y / 4 }), { x: 0, y: 0 });
-  const corners = detected.map(point => ({
-    x: Math.max(0, Math.min(width, center.x + (point.x - center.x) * 1.04)),
-    y: Math.max(0, Math.min(height, center.y + (point.y - center.y) * 1.04))
-  }));
+  context.drawImage(source, 0, 0, sample.width, sample.height);
+  const pixels = context.getImageData(0, 0, sample.width, sample.height).data;
+  const detected = Math.min(sample.width, sample.height) >= 40
+    ? findDdtCorners(pixels, sample.width, sample.height) : null;
+  const result = detected ? straightenDdt(source, detected.map(point => ({
+    x: point.x * source.width / sample.width,
+    y: point.y * source.height / sample.height
+  }))) : source;
+  improveDdtLighting(result);
+  return result;
+}
 
-  const left = Math.floor(Math.min(...corners.map(point => point.x)));
-  const right = Math.ceil(Math.max(...corners.map(point => point.x)));
-  const top = Math.floor(Math.min(...corners.map(point => point.y)));
-  const bottom = Math.ceil(Math.max(...corners.map(point => point.y)));
+function straightenDdt(source, [topLeft, topRight, bottomRight, bottomLeft]){
+  const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const output = document.createElement("canvas");
-  const outputScale = Math.min(1 / scale, 1800 / Math.max(right - left, bottom - top));
-  output.width = Math.round((right - left) * outputScale);
-  output.height = Math.round((bottom - top) * outputScale);
-  const result = output.getContext("2d");
-  result.fillStyle = "#fff";
-  result.fillRect(0, 0, output.width, output.height);
-  result.beginPath();
-  corners.forEach((point, index) => {
-    const x = (point.x - left) * outputScale;
-    const y = (point.y - top) * outputScale;
-    if (index === 0) result.moveTo(x, y);
-    else result.lineTo(x, y);
-  });
-  result.closePath();
-  result.clip();
-  result.drawImage(image, -left * outputScale, -top * outputScale, width * outputScale, height * outputScale);
-  return new Promise(resolve => output.toBlob(resolve, "image/jpeg", 0.94));
+  output.width = Math.max(2, Math.round(Math.max(distance(topLeft, topRight), distance(bottomLeft, bottomRight))));
+  output.height = Math.max(2, Math.round(Math.max(distance(topLeft, bottomLeft), distance(topRight, bottomRight))));
+  const input = source.getContext("2d").getImageData(0, 0, source.width, source.height).data;
+  const context = output.getContext("2d");
+  const result = context.createImageData(output.width, output.height);
+
+  // Inverse projective map from the rectangular output to the detected page.
+  const rightX = topRight.x - bottomRight.x;
+  const leftX = bottomLeft.x - bottomRight.x;
+  const rightY = topRight.y - bottomRight.y;
+  const leftY = bottomLeft.y - bottomRight.y;
+  const dx = topLeft.x - topRight.x + bottomRight.x - bottomLeft.x;
+  const dy = topLeft.y - topRight.y + bottomRight.y - bottomLeft.y;
+  const determinant = rightX * leftY - leftX * rightY;
+  if (Math.abs(determinant) < 1) return source;
+  const g = (dx * leftY - leftX * dy) / determinant;
+  const h = (rightX * dy - dx * rightY) / determinant;
+  const ax = topRight.x * (1 + g) - topLeft.x;
+  const bx = bottomLeft.x * (1 + h) - topLeft.x;
+  const ay = topRight.y * (1 + g) - topLeft.y;
+  const by = bottomLeft.y * (1 + h) - topLeft.y;
+
+  for (let y = 0; y < output.height; y++) {
+    const v = y / (output.height - 1);
+    for (let x = 0; x < output.width; x++) {
+      const u = x / (output.width - 1);
+      const divisor = 1 + g * u + h * v;
+      const sx = Math.max(0, Math.min(source.width - 1, (ax * u + bx * v + topLeft.x) / divisor));
+      const sy = Math.max(0, Math.min(source.height - 1, (ay * u + by * v + topLeft.y) / divisor));
+      const ix = Math.floor(sx);
+      const iy = Math.floor(sy);
+      const fx = sx - ix;
+      const fy = sy - iy;
+      const left = (iy * source.width + ix) * 4;
+      const right = left + (ix < source.width - 1 ? 4 : 0);
+      const row = iy < source.height - 1 ? source.width * 4 : 0;
+      const target = (y * output.width + x) * 4;
+      for (let channel = 0; channel < 3; channel++) {
+        const top = input[left + channel] * (1 - fx) + input[right + channel] * fx;
+        const bottom = input[left + row + channel] * (1 - fx) + input[right + row + channel] * fx;
+        result.data[target + channel] = top * (1 - fy) + bottom * fy;
+      }
+      result.data[target + 3] = 255;
+    }
+  }
+  context.putImageData(result, 0, 0);
+  return output;
+}
+
+function improveDdtLighting(canvas){
+  const context = canvas.getContext("2d");
+  const { width, height } = canvas;
+  const image = context.getImageData(0, 0, width, height);
+  const { data } = image;
+  const columns = Math.min(32, width);
+  const rows = Math.min(32, height);
+  const background = new Uint8Array(columns * rows);
+
+  // Estimate the brightness of the paper in each tile while ignoring dark print.
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      const values = [];
+      for (let y = Math.floor(row * height / rows); y < Math.floor((row + 1) * height / rows); y += 3) {
+        for (let x = Math.floor(column * width / columns); x < Math.floor((column + 1) * width / columns); x += 3) {
+          const i = (y * width + x) * 4;
+          values.push((data[i] * 2 + data[i + 1] * 5 + data[i + 2]) / 8);
+        }
+      }
+      values.sort((a, b) => a - b);
+      background[row * columns + column] = values[Math.floor((values.length - 1) * 0.82)];
+    }
+  }
+
+  for (let y = 0; y < height; y++) {
+    const sy = Math.max(0, Math.min(rows - 1, y * rows / height - 0.5));
+    const top = Math.floor(sy);
+    const bottom = Math.min(rows - 1, top + 1);
+    for (let x = 0; x < width; x++) {
+      const sx = Math.max(0, Math.min(columns - 1, x * columns / width - 0.5));
+      const left = Math.floor(sx);
+      const right = Math.min(columns - 1, left + 1);
+      const fraction = sx - left;
+      const upper = background[top * columns + left] * (1 - fraction) + background[top * columns + right] * fraction;
+      const lower = background[bottom * columns + left] * (1 - fraction) + background[bottom * columns + right] * fraction;
+      const paper = upper * (1 - (sy - top)) + lower * (sy - top);
+      const gain = Math.min(1.85, Math.max(1, 238 / Math.max(1, paper)));
+      const i = (y * width + x) * 4;
+      for (let channel = 0; channel < 3; channel++) {
+        data[i + channel] = Math.max(0, (data[i + channel] - 8) * gain + 8);
+      }
+    }
+  }
+  context.putImageData(image, 0, 0);
 }
 
 function findDdtCorners(pixels, width, height){

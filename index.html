@@ -146,6 +146,10 @@
         <button id="ddtNativeCameraBtn" type="button" class="btn btn-light hidden" onclick="document.getElementById('ddtCamera').click()">Usa la fotocamera del telefono</button>
         <p id="ddtFileName" role="status" hidden></p>
         <img id="ddtPreview" class="preview hidden" alt="Anteprima DDT" />
+        <div id="ddtScanOptions" class="ddt-scan-options hidden" role="group" aria-label="Immagine da salvare">
+          <button id="ddtOriginalBtn" type="button" class="btn btn-light" aria-pressed="false" onclick="showDdtScan(false)">Originale</button>
+          <button id="ddtImprovedBtn" type="button" class="btn btn-light" aria-pressed="true" onclick="showDdtScan(true)">Migliorata</button>
+        </div>
 
         <label for="ddtNote">Note</label>
         <textarea id="ddtNote" placeholder="Numero bolla o note"></textarea>
