@@ -130,9 +130,6 @@
           <button class="modal-close" onclick="closeDdtModal()">×</button>
         </div>
 
-        <div class="meta-box" id="ddtOperatoreBox">Operatore: --</div>
-        <div class="meta-box" id="ddtSedeBox">Sede: --</div>
-
         <button type="button" class="btn btn-primary" onclick="openDdtCamera()">Scatta foto</button>
         <button type="button" class="btn btn-light" onclick="document.getElementById('ddtFile').click()">Carica file</button>
         <input id="ddtCamera" type="file" accept="image/*" capture="environment" hidden onchange="previewDdt(this)" />
@@ -153,7 +150,7 @@
         <label for="ddtNote">Note</label>
         <textarea id="ddtNote" placeholder="Numero bolla o note"></textarea>
 
-        <button class="btn btn-primary" onclick="saveDdt()">Salva DDT</button>
+        <button id="ddtSaveBtn" class="btn btn-primary" onclick="saveDdt()">Salva DDT</button>
         <button class="btn btn-light" onclick="closeDdtModal()">Chiudi</button>
 
         <div id="ddtMsg" class="msg info hidden"></div>

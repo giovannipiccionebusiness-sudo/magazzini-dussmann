@@ -265,11 +265,9 @@ function openDdtModal(){
     return;
   }
 
-  $("ddtOperatoreBox").textContent = "Operatore: " + APP.user.nome;
-  $("ddtSedeBox").textContent = "Sede: " + sede;
-
   $("ddtCamera").value = "";
   $("ddtFile").value = "";
+  $("ddtSaveBtn").disabled = false;
   $("ddtNote").value = "";
   $("ddtFileName").hidden = true;
   $("ddtPreview").removeAttribute("src");
@@ -361,7 +359,7 @@ function captureDdtPhoto(){
 
 window.addEventListener("pagehide", closeDdtCamera);
 
-function previewDdt(input){
+async function previewDdt(input){
   const file = input.files[0];
   if (!file) return;
 
@@ -380,15 +378,174 @@ function previewDdt(input){
   hide("ddtMsg");
   hide("ddtPreview");
 
-  const reader = new FileReader();
+  const saveButton = $("ddtSaveBtn");
+  saveButton.disabled = true;
+  setMsg("ddtMsg", "Ricerca dei bordi del foglio…", "info");
 
-  reader.onload = function(e){
+  const originalUrl = URL.createObjectURL(file);
+  let selectedFile = file;
+  try {
+    const image = new Image();
+    image.src = originalUrl;
+    await image.decode();
+    const cropped = await cropDdtDocument(image);
     if (fileInput.files[0] !== file) return;
-    $("ddtPreview").src = e.target.result;
-    show("ddtPreview");
-  };
 
-  reader.readAsDataURL(file);
+    const displayedFile = cropped ? new File([cropped], file.name.replace(/\.[^.]+$/, "") + ".jpg", {
+      type: "image/jpeg"
+    }) : file;
+    const reader = new FileReader();
+    const preview = await new Promise((resolve, reject) => {
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(displayedFile);
+    });
+    if (fileInput.files[0] !== file) return;
+
+    if (cropped) {
+      const transfer = new DataTransfer();
+      transfer.items.add(displayedFile);
+      fileInput.files = transfer.files;
+      selectedFile = fileInput.files[0];
+    }
+
+    $("ddtPreview").src = preview;
+    show("ddtPreview");
+    hide("ddtMsg");
+  } catch {
+    if (fileInput.files[0] === file) {
+      setMsg("ddtMsg", "Anteprima non disponibile. È stata mantenuta l’immagine originale.", "info");
+    }
+  } finally {
+    URL.revokeObjectURL(originalUrl);
+    if (fileInput.files[0] === selectedFile) {
+      saveButton.disabled = false;
+    }
+  }
+}
+
+async function cropDdtDocument(image){
+  const sample = document.createElement("canvas");
+  const scale = Math.min(1, 360 / Math.max(image.naturalWidth, image.naturalHeight));
+  sample.width = Math.round(image.naturalWidth * scale);
+  sample.height = Math.round(image.naturalHeight * scale);
+  const { width, height } = sample;
+  if (Math.min(width, height) < 40) return null;
+
+  const context = sample.getContext("2d");
+  context.drawImage(image, 0, 0, width, height);
+  const pixels = context.getImageData(0, 0, width, height).data;
+  const detected = findDdtCorners(pixels, width, height);
+  if (!detected) return null;
+  const center = detected.reduce((sum, point) => ({ x: sum.x + point.x / 4, y: sum.y + point.y / 4 }), { x: 0, y: 0 });
+  const corners = detected.map(point => ({
+    x: Math.max(0, Math.min(width, center.x + (point.x - center.x) * 1.04)),
+    y: Math.max(0, Math.min(height, center.y + (point.y - center.y) * 1.04))
+  }));
+
+  const left = Math.floor(Math.min(...corners.map(point => point.x)));
+  const right = Math.ceil(Math.max(...corners.map(point => point.x)));
+  const top = Math.floor(Math.min(...corners.map(point => point.y)));
+  const bottom = Math.ceil(Math.max(...corners.map(point => point.y)));
+  const output = document.createElement("canvas");
+  const outputScale = Math.min(1 / scale, 1800 / Math.max(right - left, bottom - top));
+  output.width = Math.round((right - left) * outputScale);
+  output.height = Math.round((bottom - top) * outputScale);
+  const result = output.getContext("2d");
+  result.fillStyle = "#fff";
+  result.fillRect(0, 0, output.width, output.height);
+  result.beginPath();
+  corners.forEach((point, index) => {
+    const x = (point.x - left) * outputScale;
+    const y = (point.y - top) * outputScale;
+    if (index === 0) result.moveTo(x, y);
+    else result.lineTo(x, y);
+  });
+  result.closePath();
+  result.clip();
+  result.drawImage(image, -left * outputScale, -top * outputScale, width * outputScale, height * outputScale);
+  return new Promise(resolve => output.toBlob(resolve, "image/jpeg", 0.94));
+}
+
+function findDdtCorners(pixels, width, height){
+  function fitEdge(horizontal, farSide){
+    const length = horizontal ? width : height;
+    const depth = horizontal ? height : width;
+    const points = [];
+    for (let line = 0; line < 25; line++) {
+      const along = Math.round(length * (0.28 + line * 0.44 / 24));
+      const candidates = [];
+      for (let offset = 4; offset < depth * 0.36; offset++) {
+        const across = farSide ? depth - 1 - offset : offset;
+        const pixel = horizontal ? across * width + along : along * width + across;
+        const step = horizontal ? width : 1;
+        const before = (pixel - 3 * step) * 4;
+        const after = (pixel + 3 * step) * 4;
+        const contrast = (
+          Math.abs(pixels[after] - pixels[before]) +
+          Math.abs(pixels[after + 1] - pixels[before + 1]) +
+          Math.abs(pixels[after + 2] - pixels[before + 2])
+        ) / 3;
+        const score = contrast * (1 - 0.55 * offset / depth);
+        if (score > 22) candidates.push({ edge: across, score });
+      }
+      candidates.sort((a, b) => b.score - a.score);
+      const edges = [];
+      for (const { edge } of candidates) {
+        if (edges.some(other => Math.abs(other - edge) < 7)) continue;
+        edges.push(edge);
+        if (edges.length === 4) break;
+      }
+      if (edges.length) points.push({ along, edges });
+    }
+
+    let best;
+    let bestCount = 0;
+    const tolerance = Math.max(2, depth * 0.013);
+    for (const first of points) {
+      for (const last of points) {
+        if (last.along - first.along < length * 0.20) continue;
+        for (const firstEdge of first.edges) {
+          for (const lastEdge of last.edges) {
+            const slope = (lastEdge - firstEdge) / (last.along - first.along);
+            if (Math.abs(slope) > 0.4) continue;
+            const intercept = firstEdge - slope * first.along;
+            let count = 0;
+            for (const point of points) {
+              const expected = slope * point.along + intercept;
+              if (point.edges.some(edge => Math.abs(edge - expected) <= tolerance)) count++;
+            }
+            if (count > bestCount) {
+              best = { slope, intercept };
+              bestCount = count;
+            }
+          }
+        }
+      }
+    }
+    return bestCount >= 15 ? best : null;
+  }
+
+  const top = fitEdge(true, false);
+  const bottom = fitEdge(true, true);
+  const left = fitEdge(false, false);
+  const right = fitEdge(false, true);
+  if (!top || !bottom || !left || !right) return null;
+
+  function intersect(horizontal, vertical){
+    const x = (vertical.intercept + vertical.slope * horizontal.intercept) /
+      (1 - vertical.slope * horizontal.slope);
+    return { x, y: horizontal.slope * x + horizontal.intercept };
+  }
+
+  const corners = [intersect(top, left), intersect(top, right), intersect(bottom, right), intersect(bottom, left)];
+  if (corners.some(({ x, y }) => x < 0 || y < 0 || x >= width || y >= height)) return null;
+  const area = Math.abs(corners.reduce((sum, point, index) => {
+    const next = corners[(index + 1) % corners.length];
+    return sum + point.x * next.y - next.x * point.y;
+  }, 0)) / 2;
+  if (area < width * height * 0.24 || area > width * height * 0.94) return null;
+  return corners;
 }
 
 function resizeImageToJpegBase64(file, maxWidth = 1400, quality = 0.78){
