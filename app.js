@@ -1221,7 +1221,7 @@ function renderMyOrder(order){
   details.className = "my-order-card";
   const summary = document.createElement("summary");
   const title = document.createElement("strong");
-  title.textContent = order.fornitore || "Invio da verificare";
+  title.textContent = order.fornitore || "Ordine";
   const meta = document.createElement("span");
   meta.className = "my-order-meta";
   const date = order.date ? new Date(order.date).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" }) : "";
@@ -1260,12 +1260,6 @@ function openMyOrders(){
   if (!APP.user?.operatoreId) return;
   hideAllModals();
   $("myOrdersStatus").textContent = "";
-  const list = $("myOrdersList");
-  list.replaceChildren();
-  const key = orderStorageKey("history", APP.user.operatoreId);
-  const orders = readOrderStorage(key, []);
-  if (!orders.length) list.textContent = "Nessun invio registrato su questo browser.";
-  for (const order of orders) list.append(renderMyOrder(order));
   show("myOrdersModal");
   loadRegisteredOrders();
 }
@@ -1519,19 +1513,12 @@ async function saveOrder(){
   updateOrderFooter();
   try {
     startProgress("Salvataggio ordine", "Invio ordine…");
-    const key = orderStorageKey("history", order.operatoreId);
-    const history = readOrderStorage(key, []);
-    const recorded = writeOrderStorage(key, [{ date: Date.now(), sede: order.sede, items: items.map(
-      ({ prodotto, qtaOrdine, fornitore }) => ({ prodotto, qtaOrdine, fornitore })
-    ) }, ...history].slice(0, 100));
     await postOrderForm({ operatoreId: order.operatoreId, sede: order.sede, items: JSON.stringify(items) });
     stopProgress("Invio completato");
-    if (recorded) writeOrderStorage(order.draftKey, null);
+    writeOrderStorage(order.draftKey, null);
     order.saving = false;
     closeOrderModal();
-    setMsg("mainMsg", recorded
-      ? "Invio completato. Trovi l’ordine in «I miei ordini», in attesa di verifica."
-      : "Invio completato. Lo storico locale non è disponibile: verifica la registrazione prima di riprovare.", "info");
+    setMsg("mainMsg", "Invio completato. Puoi verificare la registrazione in «I miei ordini».", "info");
   } catch (err) {
     stopProgress();
     order.saving = false;
