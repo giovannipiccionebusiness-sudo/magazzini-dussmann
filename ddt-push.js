@@ -24,21 +24,78 @@ async function ddtPushApi(action, fields = {}, user = APP.user, signal){
   return result;
 }
 
-async function updateDdtPushButton(){
+let pushPromptPending = false;
+let pushCheckTimer;
+let pushPromptFocus;
+
+function closeDdtPushPrompt(){
+  pushPromptPending = false;
+  $("ddtPushPrompt").close();
+}
+
+function offerDdtPushPrompt(){
+  const dialog = $("ddtPushPrompt");
+  if (!APP.user) {
+    pushPromptPending = false;
+    if (dialog.open) dialog.close();
+    return;
+  }
+  if (!pushPromptPending || pushToggleBusy || document.visibilityState !== "visible" || dialog.open) return;
+  if (document.querySelector("dialog[open]") || document.querySelector(".modal:not(.hidden)")) return;
+  pushPromptPending = false;
+  pushPromptFocus = document.activeElement;
+  const supported = ddtPushSupported();
+  $("ddtPushPromptHelp").textContent = !supported
+    ? "Per ricevere gli avvisi DDT, usa un browser compatibile. Su iPhone e iPad aggiungi l’app alla schermata Home da Safari e aprila dalla sua icona."
+    : Notification.permission === "denied"
+      ? "Le notifiche sono bloccate. Consenti le notifiche per Magazzini Dussmann nelle impostazioni del browser o del telefono, poi torna nell’app e tocca Attiva notifiche."
+      : "Attiva le notifiche per ricevere i promemoria dei DDT da caricare e aprire l’ordine collegato.";
+  $("ddtPushPromptActivate").classList.toggle("hidden", !supported);
+  $("ddtPushPromptStatus").textContent = "";
+  dialog.showModal();
+}
+
+async function updateDdtPushButton(prompt = true){
   const button = $("ddtPushToggle");
   const user = APP.user;
-  button.classList.toggle("hidden", !user || !ddtPushSupported());
-  if (!user || !ddtPushSupported()) return;
-  try {
-    const registration = await ddtPushRegistration();
-    const subscription = await registration.pushManager.getSubscription();
-    if (APP.user !== user) return;
-    const active = subscription && localStorage.getItem(pushOwnerKey) === String(user.operatoreId);
-    button.textContent = active ? "Disattiva notifiche DDT" : "Attiva notifiche DDT";
-  } catch {
-    button.textContent = "Attiva notifiche DDT";
+  let active = false;
+  if (user && ddtPushSupported() && Notification.permission === "granted") {
+    try {
+      const registration = await ddtPushRegistration();
+      const subscription = await registration.pushManager.getSubscription();
+      active = !!subscription && localStorage.getItem(pushOwnerKey) === String(user.operatoreId);
+    } catch { /* Registration may still be installing. Rechecked on controller change. */ }
+  }
+  if (APP.user !== user) return;
+  button.textContent = "Attiva notifiche DDT";
+  button.classList.toggle("hidden", !user || active || !ddtPushSupported());
+  if (!user || active) {
+    pushPromptPending = false;
+    if ($("ddtPushPrompt").open) closeDdtPushPrompt();
+  } else if (prompt) {
+    pushPromptPending = true;
+    offerDdtPushPrompt();
   }
 }
+
+function scheduleDdtPushCheck(){
+  if (pushToggleBusy || document.visibilityState !== "visible") return;
+  clearTimeout(pushCheckTimer);
+  pushCheckTimer = setTimeout(() => updateDdtPushButton(), 500);
+}
+
+window.addEventListener("focus", scheduleDdtPushCheck);
+window.addEventListener("pageshow", scheduleDdtPushCheck);
+document.addEventListener("visibilitychange", scheduleDdtPushCheck);
+if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("controllerchange", scheduleDdtPushCheck);
+$("ddtPushPrompt").addEventListener("close", () => {
+  pushPromptPending = false;
+  pushPromptFocus?.focus?.();
+});
+$("ddtPushPrompt").addEventListener("cancel", () => { pushPromptPending = false; });
+new MutationObserver(offerDdtPushPrompt).observe(document.body, {
+  subtree: true, attributes: true, attributeFilter: ["class", "open"]
+});
 
 async function detachDdtPush(user){
   if (!ddtPushSupported()) return;
@@ -60,15 +117,11 @@ async function toggleDdtPush(){
   const user = APP.user;
   if (!user || pushToggleBusy || !ddtPushSupported()) return;
   const button = $("ddtPushToggle");
-  const currentlyActive = localStorage.getItem(pushOwnerKey) === String(user.operatoreId);
   pushToggleBusy = true;
   button.disabled = true;
+  $("ddtPushPromptActivate").disabled = true;
+  $("ddtPushPromptStatus").textContent = "Attivazione in corso…";
   try {
-    if (currentlyActive) {
-      await detachDdtPush(user);
-      setMsg("mainMsg", "Notifiche DDT disattivate su questo dispositivo.", "info");
-      return;
-    }
     if (!user.orderHistoryToken) throw new Error("Esci e accedi di nuovo per attivare le notifiche.");
     const permission = await Notification.requestPermission();
     if (permission !== "granted") throw new Error("Consenti le notifiche nelle impostazioni del dispositivo e riprova.");
@@ -92,11 +145,16 @@ async function toggleDdtPush(){
     localStorage.setItem(pushOwnerKey, String(user.operatoreId));
     setMsg("mainMsg", "Notifiche DDT attive su questo dispositivo.", "ok");
   } catch (error) {
-    if (APP.user === user) setMsg("mainMsg", error.message || "Impossibile attivare le notifiche.", "err");
+    if (APP.user === user) {
+      $("ddtPushPromptStatus").textContent = error.message || "Impossibile attivare le notifiche.";
+      setMsg("mainMsg", "Attivazione notifiche non completata. Riprova dal pulsante Attiva notifiche DDT.", "err");
+    }
   } finally {
     pushToggleBusy = false;
     button.disabled = false;
-    updateDdtPushButton();
+    $("ddtPushPromptActivate").disabled = false;
+    clearTimeout(pushCheckTimer);
+    updateDdtPushButton(false);
   }
 }
 
