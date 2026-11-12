@@ -891,3 +891,9 @@ button{
 .admin-order-card header > strong { color:#1f4e78; font-size:.94rem; line-height:1.4; }
 .admin-order-reminders { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; }
 .admin-order-reminders .btn { min-width:0; padding:10px 6px; min-height:46px; font-size:.85rem; margin-top:8px; }
+
+/* Links need their own button geometry: native button rules do not style anchors. */
+a.ddt-whatsapp-open, a.ddt-whatsapp-open:visited { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:54px; box-sizing:border-box; margin-top:14px; padding:14px 18px; border:1px solid #087f4c; border-radius:14px; background:#128c55; color:#fff; font-size:16px; font-weight:700; line-height:1.35; text-decoration:none; text-align:center; }
+a.ddt-whatsapp-open:hover { background:#087f4c; color:#fff; }
+a.ddt-whatsapp-open:focus-visible { outline:3px solid #1f4e78; outline-offset:3px; }
+.ddt-whatsapp-open svg { width:23px; height:23px; flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }

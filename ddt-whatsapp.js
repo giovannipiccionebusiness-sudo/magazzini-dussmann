@@ -66,7 +66,11 @@ async function openDdtWhatsappFromLink(id = new URLSearchParams(location.search)
         open.href = link;
         open.target = "_blank";
         open.rel = "noopener noreferrer";
-        open.textContent = "Apri WhatsApp per "+recipient.name;
+        open.setAttribute("aria-label","Apri WhatsApp per "+recipient.name);
+        open.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-8 8 9 9 0 0 1-4-.9L3 20l1.4-5a8.5 8.5 0 1 1 15.6-3.5Z"/><path d="M8 7c-.8 1.3.2 3.8 2 5.5s4.1 2.6 5.4 1.8l.8-1.4-2.3-1.2-.8.8c-1.3-.5-2.5-1.8-3-3l.8-.8L9.5 7Z"/></svg>';
+        const text = document.createElement("span");
+        text.textContent = "Apri WhatsApp";
+        open.append(text);
         item.append(open);
       }
       list.append(item);
