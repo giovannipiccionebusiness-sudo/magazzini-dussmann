@@ -278,19 +278,13 @@ function closeMovement(){
 }
 
 let ddtReminder;
-let reminderPDFUrl;
 let reminderRequest;
 
 function closeDdtReminder(){
   reminderRequest?.abort();
   reminderRequest = undefined;
   ddtReminder = undefined;
-  if (reminderPDFUrl) URL.revokeObjectURL(reminderPDFUrl);
-  reminderPDFUrl = undefined;
-  $("ddtReminderPDF").removeAttribute("src");
-  $("ddtReminderDownload").removeAttribute("href");
-  hide("ddtReminderPDF");
-  hide("ddtReminderDownload");
+  DDTPDFViewer.close();
   hide("ddtReminderModal");
 }
 
@@ -335,20 +329,17 @@ async function openDdtReminderFromLink(id = new URLSearchParams(location.search)
 
 async function openReminderPDF(){
   if (!ddtReminder || !reminderRequest) return;
+  const order = ddtReminder;
   const controller = reminderRequest;
-  const status = $("ddtReminderStatus");
-  try {
-    const result = await reminderApi(ddtReminder.id, "getDdtReminderPDF", controller.signal);
-    if (reminderRequest !== controller) return;
-    if (reminderPDFUrl) URL.revokeObjectURL(reminderPDFUrl);
-    reminderPDFUrl = URL.createObjectURL(new Blob([Uint8Array.from(atob(result.pdf), c => c.charCodeAt(0))], { type: "application/pdf" }));
-    $("ddtReminderPDF").src = reminderPDFUrl;
-    $("ddtReminderDownload").href = reminderPDFUrl;
-    show("ddtReminderPDF");
-    show("ddtReminderDownload");
-  } catch (error) {
-    if (reminderRequest === controller) status.textContent = error.message;
-  }
+  await DDTPDFViewer.open({
+    title: "Ordine " + order.number,
+    filename: "Ordine_" + order.number + ".pdf",
+    load: async () => {
+      const result = await reminderApi(order.id, "getDdtReminderPDF", controller.signal);
+      if (reminderRequest !== controller) throw new Error("Apertura annullata.");
+      return Uint8Array.from(atob(result.pdf), c => c.charCodeAt(0));
+    }
+  });
 }
 
 function uploadReminderDdt(){
@@ -1303,7 +1294,7 @@ async function loadRegisteredOrders(){
     const orders = received.map(order => ({...order,source}));
     orders.sort((a,b) => myOrderTimestamp(b.date) - myOrderTimestamp(a.date));
     status.textContent = source === "responsabile"
-      ? (orders.length ? "Ordini del responsabile · PDF per la sede assegnata." : "Nessun ordine del responsabile disponibile per la tua sede.")
+      ? (orders.length ? "Ordini del responsabile ancora senza DDT." : "Non ci sono ordini del responsabile in attesa di DDT per la tua sede.")
       : (orders.length ? "Ordini inviati tramite Magazzini Dussmann." : "Non risultano ordini inviati dall’app.");
     for (const order of orders) list.append(renderMyOrder(order));
   } catch (error) {

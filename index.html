@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html lang="it" data-app-version="1.8.19">
+<html lang="it" data-app-version="1.8.20">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Magazzini Dussmann</title>
 
-  <link rel="stylesheet" href="style.css?v=1.8.19" />
+  <link rel="stylesheet" href="style.css?v=1.8.20" />
+  <link rel="stylesheet" href="pdf-viewer.css?v=1.8.20" />
   <link rel="manifest" href="manifest.json" />
 
   <meta name="theme-color" content="#1f4e78" />
@@ -45,7 +46,7 @@
 
       <button class="btn btn-primary" onclick="doLogin()">Entra</button>
       <div id="loginMsg" class="msg info">Seleziona il tuo nome e inserisci il PIN.</div>
-      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.19" width="900" height="507" alt="" />
+      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.20" width="900" height="507" alt="" />
     </div>
 
     <div class="card hidden" id="appCard">
@@ -79,13 +80,13 @@
         </button>
         <button type="button" class="mag-order-link" onclick="openMyOrders('responsabile')">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v5h4M10 12h5m-5 4h5"/></svg>
-          <span><strong>Ordini del responsabile</strong><small>PDF per la sede</small></span>
+          <span><strong>Ordini del responsabile</strong><small>PDF senza DDT</small></span>
           <span class="mag-order-arrow" aria-hidden="true">›</span>
         </button>
       </nav>
       <button id="ddtPushToggle" type="button" class="mag-text-button hidden" onclick="toggleDdtPush()">Attiva notifiche DDT</button>
 
-      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.19" width="900" height="507" alt="" />
+      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.20" width="900" height="507" alt="" />
 
       <div id="mainMsg" class="msg info" role="status">Seleziona la sede e scegli l’operazione.</div>
       <button type="button" id="changeOperatorBtn" class="mag-text-button mag-change-user hidden" onclick="changeOperator()">Cambia operatore</button>
@@ -254,8 +255,6 @@
           <p>Se la merce è arrivata, carica il DDT. Se il documento manca o la merce non è ancora arrivata, contatta il responsabile.</p>
           <button class="btn btn-light" type="button" onclick="openReminderPDF()">Apri PDF dell’ordine</button>
           <button class="btn btn-primary" type="button" onclick="uploadReminderDdt()">Carica DDT</button>
-          <iframe id="ddtReminderPDF" class="hidden" title="PDF dell’ordine" style="width:100%;height:55vh;border:0"></iframe>
-          <a id="ddtReminderDownload" class="hidden" download="Ordine.pdf">Scarica PDF</a>
         </div>
       </div>
     </div>
@@ -381,7 +380,7 @@
 
   <footer class="app-version">
     <button id="installBtn" type="button" class="mag-text-button hidden" aria-haspopup="dialog" aria-controls="installDialog" onclick="openInstallDialog()">Installa app</button>
-    <div>Magazzini Dussmann · Versione 1.8.19</div>
+    <div>Magazzini Dussmann · Versione 1.8.20</div>
   </footer>
 
   <dialog id="ddtPushPrompt" class="app-update" aria-labelledby="ddtPushPromptTitle" aria-describedby="ddtPushPromptHelp">
@@ -408,7 +407,8 @@
     <button id="appUpdateLater" type="button" class="mag-text-button">Più tardi</button>
   </dialog>
 
-  <script src="app.js?v=1.8.19"></script>
-  <script src="ddt-push.js?v=1.8.19"></script>
+  <script src="pdf-viewer.js?v=1.8.20"></script>
+  <script src="app.js?v=1.8.20"></script>
+  <script src="ddt-push.js?v=1.8.20"></script>
 </body>
 </html>
