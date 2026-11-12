@@ -225,6 +225,7 @@ function logoutApp(){
   closeMyOrders();
   closeDdtReminder();
   closeDdtPushAdmin();
+  closeDdtWhatsapp();
   hide("receiveModal");
   hide("deliveryModal");
 
@@ -251,6 +252,7 @@ function hideAllModals(){
   closeMyOrders();
   closeDdtReminder();
   closeDdtPushAdmin();
+  closeDdtWhatsapp();
   hide("receiveModal");
   hide("deliveryModal");
   hide("adminDashboardModal");

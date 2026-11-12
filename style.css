@@ -880,3 +880,5 @@ button{
 .mag-order-link:hover { background:#f0f5f9; border-color:#bdcdd9; }
 .mag-order-link:focus-visible { outline:3px solid #1f4e78; outline-offset:3px; }
 @media (max-width:360px) { .mag-order-link { padding:12px 8px; gap:6px; } .mag-order-link svg { display:none; } }
+
+.ddt-whatsapp-open { display:block; box-sizing:border-box; text-align:center; text-decoration:none; }

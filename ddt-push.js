@@ -165,6 +165,7 @@ function closeDdtPushAdmin(){
 }
 
 async function openDdtPushFromLink(){
+  if (new URLSearchParams(location.search).has("sollecita-whatsapp")) return openDdtWhatsappFromLink();
   const id = new URLSearchParams(location.search).get("sollecita-ddt");
   if (!id || !APP.user) return;
   hideAllModals();
