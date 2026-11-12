@@ -306,8 +306,7 @@ async function reminderApi(id, action, signal){
   return result;
 }
 
-async function openDdtReminderFromLink(){
-  const id = new URLSearchParams(location.search).get("ordine-ddt");
+async function openDdtReminderFromLink(id = new URLSearchParams(location.search).get("ordine-ddt")){
   if (!id || !APP.user) return;
   hideAllModals();
   show("ddtReminderModal");
@@ -328,6 +327,7 @@ async function openDdtReminderFromLink(){
     ddtReminder = order;
     status.textContent = [order.number, order.company, order.sede].join(" · ");
     show("ddtReminderActions");
+    await openReminderPDF();
   } catch (error) {
     if (reminderRequest === controller) status.textContent = error.message;
   }
@@ -1282,23 +1282,31 @@ async function loadRegisteredOrders(){
   }
   const controller = new AbortController();
   registeredOrdersRequest = controller;
-  const body = new URLSearchParams({ action: "getRegisteredOrders", session: user.orderHistoryToken });
-  status.textContent = "Caricamento dal registro…";
+  status.textContent = "Caricamento degli ordini e dei PDF della sede…";
   list.replaceChildren();
-  const timeout = setTimeout(() => controller.abort(), 20000);
-
+  const timeout = setTimeout(() => controller.abort(), 30000);
   try {
-    const response = await fetch(API_URL, { method: "POST", body, signal: controller.signal });
-    if (!response.ok) throw new Error();
-    const result = await response.json();
-    if (registeredOrdersRequest !== controller || APP.user !== user) return;
-    if (!result.ok) {
-      status.textContent = result.error || "Impossibile leggere il registro.";
-      if (result.sessionRequired) show("myOrdersReconnect");
-      return;
+    async function readOrders(action){
+      const body = new URLSearchParams({ action, session: user.orderHistoryToken });
+      const response = await fetch(API_URL, { method: "POST", body, signal: controller.signal });
+      if (!response.ok) throw new Error("Registro non raggiungibile.");
+      const result = await response.json();
+      if (!result.ok) throw Object.assign(new Error(result.error || "Registro non disponibile."), {sessionRequired:result.sessionRequired});
+      if (!Array.isArray(result.orders)) throw new Error("Risposta del registro non valida.");
+      return result.orders;
     }
-    status.textContent = result.orders.length ? "Ultimi ordini registrati" : "Nessun ordine nel registro.";
-    for (const order of result.orders) list.append(renderMyOrder(order));
+    const results = await Promise.allSettled([readOrders("getRegisteredOrders"),readOrders("getSitePdfOrders")]);
+    if (registeredOrdersRequest !== controller || APP.user !== user) return;
+    const orders = results.flatMap((result,index) => result.status === "fulfilled"
+      ? result.value.map(order => ({...order,source:index ? "responsabile" : "operatore"})) : []);
+    orders.sort((a,b) => myOrderTimestamp(b.date) - myOrderTimestamp(a.date));
+    const errors = results.flatMap((result,index) => result.status === "rejected"
+      ? [(index ? "PDF del responsabile: " : "Ordini dall’app: ") + result.reason.message] : []);
+    if (results.some(result => result.status === "rejected" && result.reason.sessionRequired)) show("myOrdersReconnect");
+    status.textContent = errors.length ? errors.join(" ") : orders.length
+      ? "Ordini inviati dall’app e ordini del responsabile per la tua sede."
+      : "Nessun ordine disponibile per la tua sede.";
+    for (const order of orders) list.append(renderMyOrder(order));
   } catch {
     if (registeredOrdersRequest === controller) status.textContent = "Registro non raggiungibile. Riprova.";
   } finally {
@@ -1309,18 +1317,38 @@ async function loadRegisteredOrders(){
   }
 }
 
+function myOrderTimestamp(value){
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(String(value || ""));
+  const timestamp = Date.parse(match ? match[3]+"-"+match[2]+"-"+match[1] : value);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
 function renderMyOrder(order){
   const details = document.createElement("details");
   details.className = "my-order-card";
   const summary = document.createElement("summary");
   const title = document.createElement("strong");
-  title.textContent = order.fornitore || "Ordine";
+  title.textContent = (order.source === "responsabile" ? "Ordine " + order.number + " · " : "") + (order.fornitore || "Ordine");
   const meta = document.createElement("span");
   meta.className = "my-order-meta";
-  const date = order.date ? new Date(order.date).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" }) : "";
+  const timestamp = myOrderTimestamp(order.date);
+  const date = timestamp ? new Date(timestamp).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" }) : "";
   meta.textContent = [order.sede, date].filter(Boolean).join(" · ");
   summary.append(title, meta);
   details.append(summary);
+  const origin = document.createElement("span");
+  origin.className = "my-order-origin";
+  origin.textContent = order.source === "responsabile" ? "Ordine del responsabile · PDF" : "Ordine inviato dall’app";
+  summary.append(origin);
+  if (order.source === "responsabile") {
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "btn btn-primary";
+    open.textContent = "Apri PDF dell’ordine";
+    open.onclick = () => openDdtReminderFromLink(order.id);
+    details.append(open);
+    return details;
+  }
 
   if (order.id) {
     const id = document.createElement("p");
@@ -1330,7 +1358,7 @@ function renderMyOrder(order){
   }
 
   const items = document.createElement("ul");
-  for (const item of order.items) {
+  for (const item of order.items || []) {
     const row = document.createElement("li");
     const name = document.createElement("span");
     name.textContent = item.prodotto;
@@ -2256,4 +2284,9 @@ window.addEventListener("load", async () => {
   updateInstallButton();
   await setupAppUpdates();
   offerAppInstallation();
+});
+
+// Refresh the shared registry when returning to an already open order history.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && !$("myOrdersModal").classList.contains("hidden")) loadRegisteredOrders();
 });

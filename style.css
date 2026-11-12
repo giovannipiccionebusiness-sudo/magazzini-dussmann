@@ -865,3 +865,6 @@ button{
   width: 20px;
   height: 20px;
 }
+
+.my-order-origin { display:block; width:fit-content; margin:10px 0; padding:5px 9px; border-radius:8px; background:#eaf2f9; color:#1f4e78; font-size:.8rem; font-weight:600; }
+.my-order-card .btn { margin-top:12px; width:100%; }
