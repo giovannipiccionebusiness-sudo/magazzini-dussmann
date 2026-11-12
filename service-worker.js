@@ -1,4 +1,4 @@
-const VERSION = "1.8.18";
+const VERSION = "1.8.19";
 const CACHE_PREFIX = "magazzini-dussmann-";
 const CACHE_NAME = CACHE_PREFIX + VERSION;
 

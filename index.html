@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="it" data-app-version="1.8.18">
+<html lang="it" data-app-version="1.8.19">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Magazzini Dussmann</title>
 
-  <link rel="stylesheet" href="style.css?v=1.8.18" />
+  <link rel="stylesheet" href="style.css?v=1.8.19" />
   <link rel="manifest" href="manifest.json" />
 
   <meta name="theme-color" content="#1f4e78" />
@@ -45,7 +45,7 @@
 
       <button class="btn btn-primary" onclick="doLogin()">Entra</button>
       <div id="loginMsg" class="msg info">Seleziona il tuo nome e inserisci il PIN.</div>
-      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.18" width="900" height="507" alt="" />
+      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.19" width="900" height="507" alt="" />
     </div>
 
     <div class="card hidden" id="appCard">
@@ -71,10 +71,21 @@
         </button>
       </div>
 
-      <button type="button" class="mag-text-button" onclick="openMyOrders()">I miei ordini</button>
+      <nav class="mag-order-links" aria-label="Consulta gli ordini">
+        <button type="button" class="mag-order-link" onclick="openMyOrders('operatore')">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5H5v16h14V5h-3M9 3h6v4H9zM8 12h8m-8 4h5"/></svg>
+          <span><strong>I miei ordini</strong><small>Inviati dall’app</small></span>
+          <span class="mag-order-arrow" aria-hidden="true">›</span>
+        </button>
+        <button type="button" class="mag-order-link" onclick="openMyOrders('responsabile')">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v5h4M10 12h5m-5 4h5"/></svg>
+          <span><strong>Ordini del responsabile</strong><small>PDF per la sede</small></span>
+          <span class="mag-order-arrow" aria-hidden="true">›</span>
+        </button>
+      </nav>
       <button id="ddtPushToggle" type="button" class="mag-text-button hidden" onclick="toggleDdtPush()">Attiva notifiche DDT</button>
 
-      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.18" width="900" height="507" alt="" />
+      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.19" width="900" height="507" alt="" />
 
       <div id="mainMsg" class="msg info" role="status">Seleziona la sede e scegli l’operazione.</div>
       <button type="button" id="changeOperatorBtn" class="mag-text-button mag-change-user hidden" onclick="changeOperator()">Cambia operatore</button>
@@ -370,7 +381,7 @@
 
   <footer class="app-version">
     <button id="installBtn" type="button" class="mag-text-button hidden" aria-haspopup="dialog" aria-controls="installDialog" onclick="openInstallDialog()">Installa app</button>
-    <div>Magazzini Dussmann · Versione 1.8.18</div>
+    <div>Magazzini Dussmann · Versione 1.8.19</div>
   </footer>
 
   <dialog id="ddtPushPrompt" class="app-update" aria-labelledby="ddtPushPromptTitle" aria-describedby="ddtPushPromptHelp">
@@ -397,7 +408,7 @@
     <button id="appUpdateLater" type="button" class="mag-text-button">Più tardi</button>
   </dialog>
 
-  <script src="app.js?v=1.8.18"></script>
-  <script src="ddt-push.js?v=1.8.18"></script>
+  <script src="app.js?v=1.8.19"></script>
+  <script src="ddt-push.js?v=1.8.19"></script>
 </body>
 </html>

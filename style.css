@@ -868,3 +868,15 @@ button{
 
 .my-order-origin { display:block; width:fit-content; margin:10px 0; padding:5px 9px; border-radius:8px; background:#eaf2f9; color:#1f4e78; font-size:.8rem; font-weight:600; }
 .my-order-card .btn { margin-top:12px; width:100%; }
+
+/* Secondary history entries keep the order/upload actions visually dominant. */
+.mag-order-links { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; margin:18px 0 4px; }
+.mag-order-link { display:flex; align-items:flex-start; gap:8px; min-width:0; width:100%; min-height:82px; margin:0; padding:14px 10px; border:1px solid #e0e7ed; border-radius:12px; background:#fafcfe; color:#36566d; text-align:left; }
+.mag-order-link svg { width:19px; height:19px; flex:none; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; margin-top:2px; }
+.mag-order-link > span:not(.mag-order-arrow) { min-width:0; flex:1; }
+.mag-order-link strong { display:block; font-size:.84rem; font-weight:600; line-height:1.3; }
+.mag-order-link small { display:block; font-size:.73rem; color:#667b8a; line-height:1.35; margin-top:5px; }
+.mag-order-arrow { color:#7e93a2; font-size:1.2rem; line-height:1; }
+.mag-order-link:hover { background:#f0f5f9; border-color:#bdcdd9; }
+.mag-order-link:focus-visible { outline:3px solid #1f4e78; outline-offset:3px; }
+@media (max-width:360px) { .mag-order-link { padding:12px 8px; gap:6px; } .mag-order-link svg { display:none; } }

@@ -1261,6 +1261,7 @@ function saveOrderDraft(){
 }
 
 let registeredOrdersRequest;
+let registeredOrdersSource = "operatore";
 
 function closeMyOrders(){
   registeredOrdersRequest?.abort();
@@ -1273,8 +1274,10 @@ function closeMyOrders(){
 async function loadRegisteredOrders(){
   const user = APP.user;
   if (!user?.operatoreId || registeredOrdersRequest) return;
+  const source = registeredOrdersSource;
   const status = $("myOrdersStatus");
   const list = $("registeredOrdersList");
+  hide("myOrdersReconnect");
   if (!user.orderHistoryToken) {
     status.textContent = "Accedi di nuovo per collegare lo storico alla tua sessione.";
     show("myOrdersReconnect");
@@ -1282,7 +1285,7 @@ async function loadRegisteredOrders(){
   }
   const controller = new AbortController();
   registeredOrdersRequest = controller;
-  status.textContent = "Caricamento degli ordini e dei PDF della sede…";
+  status.textContent = source === "responsabile" ? "Caricamento dei PDF della sede…" : "Caricamento dei tuoi ordini…";
   list.replaceChildren();
   const timeout = setTimeout(() => controller.abort(), 30000);
   try {
@@ -1295,20 +1298,19 @@ async function loadRegisteredOrders(){
       if (!Array.isArray(result.orders)) throw new Error("Risposta del registro non valida.");
       return result.orders;
     }
-    const results = await Promise.allSettled([readOrders("getRegisteredOrders"),readOrders("getSitePdfOrders")]);
+    const received = await readOrders(source === "responsabile" ? "getSitePdfOrders" : "getRegisteredOrders");
     if (registeredOrdersRequest !== controller || APP.user !== user) return;
-    const orders = results.flatMap((result,index) => result.status === "fulfilled"
-      ? result.value.map(order => ({...order,source:index ? "responsabile" : "operatore"})) : []);
+    const orders = received.map(order => ({...order,source}));
     orders.sort((a,b) => myOrderTimestamp(b.date) - myOrderTimestamp(a.date));
-    const errors = results.flatMap((result,index) => result.status === "rejected"
-      ? [(index ? "PDF del responsabile: " : "Ordini dall’app: ") + result.reason.message] : []);
-    if (results.some(result => result.status === "rejected" && result.reason.sessionRequired)) show("myOrdersReconnect");
-    status.textContent = errors.length ? errors.join(" ") : orders.length
-      ? "Ordini inviati dall’app e ordini del responsabile per la tua sede."
-      : "Nessun ordine disponibile per la tua sede.";
+    status.textContent = source === "responsabile"
+      ? (orders.length ? "Ordini del responsabile · PDF per la sede assegnata." : "Nessun ordine del responsabile disponibile per la tua sede.")
+      : (orders.length ? "Ordini inviati tramite Magazzini Dussmann." : "Non risultano ordini inviati dall’app.");
     for (const order of orders) list.append(renderMyOrder(order));
-  } catch {
-    if (registeredOrdersRequest === controller) status.textContent = "Registro non raggiungibile. Riprova.";
+  } catch (error) {
+    if (registeredOrdersRequest === controller && APP.user === user) {
+      status.textContent = error.message || "Registro non raggiungibile. Riprova.";
+      if (error.sessionRequired) show("myOrdersReconnect");
+    }
   } finally {
     clearTimeout(timeout);
     if (registeredOrdersRequest === controller) {
@@ -1377,9 +1379,11 @@ function renderMyOrder(order){
   return details;
 }
 
-function openMyOrders(){
+function openMyOrders(source = "operatore"){
   if (!APP.user?.operatoreId) return;
   hideAllModals();
+  registeredOrdersSource = source === "responsabile" ? "responsabile" : "operatore";
+  $("myOrdersTitle").textContent = registeredOrdersSource === "responsabile" ? "Ordini del responsabile" : "I miei ordini";
   $("myOrdersStatus").textContent = "";
   show("myOrdersModal");
   loadRegisteredOrders();
