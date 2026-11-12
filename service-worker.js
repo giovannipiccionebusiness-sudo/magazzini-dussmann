@@ -1,4 +1,4 @@
-const VERSION = "1.8.23";
+const VERSION = "1.8.24";
 const CACHE_PREFIX = "magazzini-dussmann-";
 const CACHE_NAME = CACHE_PREFIX + VERSION;
 
@@ -10,6 +10,8 @@ const FILES_TO_CACHE = [
   "./pdf-viewer.css?v=" + VERSION,
   "./ddt-push.js?v=" + VERSION,
   "./ddt-whatsapp.js?v=" + VERSION,
+  "./stock-check.js?v=" + VERSION,
+  "./stock-check.css?v=" + VERSION,
   "./magazzino-home.webp?v=" + VERSION,
   "./manifest.json"
 ];
@@ -44,7 +46,7 @@ self.addEventListener("fetch", event => {
       return await cache.match("./index.html") || Response.error();
     }));
   } else if (url.pathname.endsWith("/magazzino-home.webp") ||
-      (url.searchParams.get("v") === VERSION && /\/(app\.js|ddt-push\.js|ddt-whatsapp\.js|style\.css|pdf-viewer\.js|pdf-viewer\.css)$/.test(url.pathname))) {
+      (url.searchParams.get("v") === VERSION && /\/(stock-check\.js|stock-check\.css|app\.js|ddt-push\.js|ddt-whatsapp\.js|style\.css|pdf-viewer\.js|pdf-viewer\.css)$/.test(url.pathname))) {
     event.respondWith(caches.open(CACHE_NAME).then(async cache => await cache.match(request) || fetch(request)));
   }
 });

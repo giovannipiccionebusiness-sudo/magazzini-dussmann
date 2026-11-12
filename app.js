@@ -86,6 +86,7 @@ function restoreSessionIfAvailable(){
   openDdtReminderFromLink();
   openDdtPushFromLink();
   updateDdtPushButton();
+  updateStockHome();
 
   return true;
 }
@@ -198,6 +199,7 @@ async function doLogin(){
     openDdtReminderFromLink();
     openDdtPushFromLink();
     updateDdtPushButton();
+    updateStockHome();
 
   } catch (err) {
     stopProgress();
@@ -226,6 +228,7 @@ function logoutApp(){
   closeDdtReminder();
   closeDdtPushAdmin();
   closeDdtWhatsapp();
+  closeStockModal(true);
   hide("receiveModal");
   hide("deliveryModal");
 
@@ -253,6 +256,7 @@ function hideAllModals(){
   closeDdtReminder();
   closeDdtPushAdmin();
   closeDdtWhatsapp();
+  closeStockModal(true);
   hide("receiveModal");
   hide("deliveryModal");
   hide("adminDashboardModal");
