@@ -1296,9 +1296,9 @@ async function loadRegisteredOrders(){
     const orders = received.map(order => ({...order,source}));
     orders.sort((a,b) => myOrderTimestamp(b.date) - myOrderTimestamp(a.date));
     status.textContent = source === "responsabile"
-      ? (orders.length ? "Ordini del responsabile ancora senza DDT." : "Non ci sono ordini del responsabile in attesa di DDT per la tua sede.")
+      ? (orders.length ? (user.role === "ADMIN" ? "Ordini senza DDT raggruppati per sede. Apri il PDF o prepara un sollecito per il singolo ordine." : "Ordini del responsabile ancora senza DDT.") : "Non ci sono ordini del responsabile in attesa di DDT per la tua sede.")
       : (orders.length ? "Ordini inviati tramite Magazzini Dussmann." : "Non risultano ordini inviati dall’app.");
-    for (const order of orders) list.append(renderMyOrder(order));
+    renderRegisteredOrderList(orders,source,list);
   } catch (error) {
     if (registeredOrdersRequest === controller && APP.user === user) {
       status.textContent = error.message || "Registro non raggiungibile. Riprova.";
@@ -1318,23 +1318,53 @@ function myOrderTimestamp(value){
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
+function renderRegisteredOrderList(orders,source,list){
+  if (source !== "responsabile" || APP.user?.role !== "ADMIN") {
+    for (const order of orders) list.append(renderMyOrder(order));
+    return;
+  }
+  const groups = new Map();
+  for (const order of orders) {
+    const site = String(order.sede || "Sede da verificare").trim();
+    if (!groups.has(site)) groups.set(site,[]);
+    groups.get(site).push(order);
+  }
+  for (const site of [...groups.keys()].sort((a,b) => a.localeCompare(b,"it"))) {
+    const siteOrders = groups.get(site).sort((a,b) => myOrderTimestamp(b.date) - myOrderTimestamp(a.date));
+    const section = document.createElement("section");
+    section.className = "admin-site-orders";
+    const heading = document.createElement("h3");
+    heading.className = "admin-site-title";
+    const name = document.createElement("span");
+    name.textContent = site;
+    const count = document.createElement("span");
+    count.className = "admin-site-count";
+    count.textContent = siteOrders.length + (siteOrders.length === 1 ? " ordine" : " ordini");
+    heading.append(name,count);
+    section.append(heading);
+    for (const order of siteOrders) section.append(renderMyOrder(order));
+    list.append(section);
+  }
+}
+
 function renderMyOrder(order){
-  const details = document.createElement("details");
-  details.className = "my-order-card";
-  const summary = document.createElement("summary");
+  const adminOrder = order.source === "responsabile" && APP.user?.role === "ADMIN";
+  const details = document.createElement(adminOrder ? "article" : "details");
+  details.className = "my-order-card" + (adminOrder ? " admin-order-card" : "");
+  const summary = document.createElement(adminOrder ? "header" : "summary");
   const title = document.createElement("strong");
   title.textContent = (order.source === "responsabile" ? "Ordine " + order.number + " · " : "") + (order.fornitore || "Ordine");
   const meta = document.createElement("span");
   meta.className = "my-order-meta";
   const timestamp = myOrderTimestamp(order.date);
   const date = timestamp ? new Date(timestamp).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" }) : "";
-  meta.textContent = [order.sede, date].filter(Boolean).join(" · ");
+  meta.textContent = [adminOrder ? "" : order.sede, date].filter(Boolean).join(" · ");
   summary.append(title, meta);
   details.append(summary);
   const origin = document.createElement("span");
   origin.className = "my-order-origin";
   origin.textContent = order.source === "responsabile" ? "Ordine del responsabile · PDF" : "Ordine inviato dall’app";
-  summary.append(origin);
+  if (!adminOrder) summary.append(origin);
   if (order.source === "responsabile") {
     const open = document.createElement("button");
     open.type = "button";
@@ -1342,6 +1372,22 @@ function renderMyOrder(order){
     open.textContent = "Apri PDF dell’ordine";
     open.onclick = () => openDdtReminderFromLink(order.id);
     details.append(open);
+    if (adminOrder) {
+      const actions = document.createElement("div");
+      actions.className = "admin-order-reminders";
+      const push = document.createElement("button");
+      push.type = "button";
+      push.className = "btn btn-light";
+      push.textContent = "Notifica push";
+      push.onclick = () => openDdtPushFromLink(order.id,true);
+      const whatsapp = document.createElement("button");
+      whatsapp.type = "button";
+      whatsapp.className = "btn btn-light";
+      whatsapp.textContent = "WhatsApp";
+      whatsapp.onclick = () => openDdtWhatsappFromLink(order.id,true);
+      actions.append(push,whatsapp);
+      details.append(actions);
+    }
     return details;
   }
 

@@ -164,12 +164,13 @@ function closeDdtPushAdmin(){
   hide("ddtPushAdminModal");
 }
 
-async function openDdtPushFromLink(){
-  if (new URLSearchParams(location.search).has("sollecita-whatsapp")) return openDdtWhatsappFromLink();
-  const id = new URLSearchParams(location.search).get("sollecita-ddt");
+async function openDdtPushFromLink(id,fromOrders = false){
+  if (!id && new URLSearchParams(location.search).has("sollecita-whatsapp")) return openDdtWhatsappFromLink();
+  id = id || new URLSearchParams(location.search).get("sollecita-ddt");
   if (!id || !APP.user) return;
   hideAllModals();
   show("ddtPushAdminModal");
+  $("ddtPushBackOrders").classList.toggle("hidden",!fromOrders);
   const status = $("ddtPushAdminStatus");
   $("ddtPushSendStatus").textContent = "";
   hide("ddtPushReconnect");

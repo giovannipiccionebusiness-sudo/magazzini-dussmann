@@ -882,3 +882,12 @@ button{
 @media (max-width:360px) { .mag-order-link { padding:12px 8px; gap:6px; } .mag-order-link svg { display:none; } }
 
 .ddt-whatsapp-open { display:block; box-sizing:border-box; text-align:center; text-decoration:none; }
+
+.admin-site-orders { margin:22px 0 26px; }
+.admin-site-title { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin:0 0 12px; padding:10px 0; border-bottom:2px solid #dce7ef; color:#1f4e78; font-size:1rem; line-height:1.35; }
+.admin-site-title > span:first-child { flex:1; min-width:0; overflow-wrap:anywhere; }
+.admin-site-count { border-radius:20px; padding:5px 9px; background:#edf3f8; font-size:.76rem; font-weight:600; white-space:nowrap; }
+.admin-order-card { margin-bottom:12px; padding:14px; }
+.admin-order-card header > strong { color:#1f4e78; font-size:.94rem; line-height:1.4; }
+.admin-order-reminders { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; }
+.admin-order-reminders .btn { min-width:0; padding:10px 6px; min-height:46px; font-size:.85rem; margin-top:8px; }

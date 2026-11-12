@@ -24,11 +24,11 @@ function ddtWhatsappLink(order,recipient){
   return "https://wa.me/"+recipient.phone.slice(1)+"?text="+encodeURIComponent(ddtWhatsappMessage(order,recipient));
 }
 
-async function openDdtWhatsappFromLink(){
-  const id = new URLSearchParams(location.search).get("sollecita-whatsapp");
+async function openDdtWhatsappFromLink(id = new URLSearchParams(location.search).get("sollecita-whatsapp"),fromOrders = false){
   if (!id || !APP.user) return;
   hideAllModals();
   show("ddtWhatsappModal");
+  $("ddtWhatsappBackOrders").classList.toggle("hidden",!fromOrders);
   hide("ddtWhatsappReconnect");
   const status = $("ddtWhatsappStatus");
   const list = $("ddtWhatsappRecipients");
