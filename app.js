@@ -84,6 +84,8 @@ function restoreSessionIfAvailable(){
   show("appCard");
   setMsg("mainMsg", "Sessione ripristinata.", "ok");
   openDdtReminderFromLink();
+  openDdtPushFromLink();
+  updateDdtPushButton();
 
   return true;
 }
@@ -194,6 +196,8 @@ async function doLogin(){
     setMsg("mainMsg", "Accesso effettuato correttamente.", "ok");
     stopProgress("Accesso completato");
     openDdtReminderFromLink();
+    openDdtPushFromLink();
+    updateDdtPushButton();
 
   } catch (err) {
     stopProgress();
@@ -206,6 +210,7 @@ function changeOperator(){
 }
 
 function logoutApp(){
+  if (APP.user) detachDdtPush(APP.user);
   stopScanner();
   clearLoginSession();
 
@@ -219,6 +224,7 @@ function logoutApp(){
   if (!$("orderModal").classList.contains("hidden")) closeOrderModal();
   closeMyOrders();
   closeDdtReminder();
+  closeDdtPushAdmin();
   hide("receiveModal");
   hide("deliveryModal");
 
@@ -244,6 +250,7 @@ function hideAllModals(){
   if (!$("orderModal").classList.contains("hidden")) closeOrderModal();
   closeMyOrders();
   closeDdtReminder();
+  closeDdtPushAdmin();
   hide("receiveModal");
   hide("deliveryModal");
   hide("adminDashboardModal");

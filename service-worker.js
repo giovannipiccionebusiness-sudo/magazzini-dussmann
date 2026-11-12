@@ -1,4 +1,4 @@
-const VERSION = "1.8.15";
+const VERSION = "1.8.16";
 const CACHE_PREFIX = "magazzini-dussmann-";
 const CACHE_NAME = CACHE_PREFIX + VERSION;
 
@@ -6,6 +6,7 @@ const FILES_TO_CACHE = [
   "./index.html",
   "./style.css?v=" + VERSION,
   "./app.js?v=" + VERSION,
+  "./ddt-push.js?v=" + VERSION,
   "./magazzino-home.webp?v=" + VERSION,
   "./manifest.json"
 ];
@@ -40,7 +41,25 @@ self.addEventListener("fetch", event => {
       return await cache.match("./index.html") || Response.error();
     }));
   } else if (url.pathname.endsWith("/magazzino-home.webp") ||
-      (url.searchParams.get("v") === VERSION && /\/(app\.js|style\.css)$/.test(url.pathname))) {
+      (url.searchParams.get("v") === VERSION && /\/(app\.js|ddt-push\.js|style\.css)$/.test(url.pathname))) {
     event.respondWith(caches.open(CACHE_NAME).then(async cache => await cache.match(request) || fetch(request)));
   }
+});
+
+self.addEventListener("push", event => {
+  let data;
+  try { data = event.data.json(); } catch { return; }
+  let url;
+  try { url = new URL(data.url); } catch { return; }
+  if (!url.href.startsWith(self.registration.scope) || !url.searchParams.get("ordine-ddt")) return;
+  event.waitUntil(self.registration.showNotification("Magazzini Dussmann", {
+    body: data.body, icon: "./icons/icon-192.png", data: { url: url.href }
+  }));
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const target = event.notification.data?.url;
+  if (!target || !target.startsWith(self.registration.scope)) return;
+  event.waitUntil(self.clients.openWindow(target));
 });
