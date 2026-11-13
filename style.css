@@ -902,3 +902,28 @@ a.ddt-whatsapp-open:focus-visible { outline:3px solid #1f4e78; outline-offset:3p
 .ddt-whatsapp-open svg { width:23px; height:23px; flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 
 .uploaded-ddt-dialog{width:calc(100vw - 28px);max-width:850px;max-height:92dvh;box-sizing:border-box;border:0;border-radius:18px;padding:18px;color:#1b3545;overflow:auto}.uploaded-ddt-dialog::backdrop{background:rgba(10,27,39,.5)}.uploaded-ddt-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.uploaded-ddt-head strong{font-size:1.1rem;overflow-wrap:anywhere}.uploaded-ddt-head .btn{width:auto;margin:0}.uploaded-ddt-tools{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.uploaded-ddt-tools .btn{width:auto;margin:0;min-width:44px;padding:10px 14px;text-decoration:none}.uploaded-ddt-viewport{width:100%;max-height:65dvh;overflow:auto;background:#f1f4f7;touch-action:pan-x pan-y pinch-zoom}.uploaded-ddt-viewport img{display:block;width:100%;max-width:none;height:auto}.uploaded-ddt-dialog p{overflow-wrap:anywhere;font-size:.9rem}
+
+/* Recipient inbox: secondary to the order and DDT actions. */
+.mag-home-header{position:relative;padding-top:52px;}
+.notification-bell{position:absolute;right:0;top:0;width:44px;height:44px;display:grid;place-items:center;background:#e9f3fa;color:#204f73;border:1px solid #d5e3ee;border-radius:50%;cursor:pointer;}
+.notification-bell svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.notification-bell:focus-visible,.notification-item:focus-visible{outline:3px solid #168ad0;outline-offset:3px;}
+.notification-badge{position:absolute;top:-4px;right:-5px;min-width:21px;height:21px;padding:0 4px;box-sizing:border-box;display:grid;place-items:center;border:2px solid white;border-radius:20px;background:#d50940;color:white;font-size:11px;font-weight:700;}
+.notifications-dialog{width:min(94vw,560px);max-height:88dvh;box-sizing:border-box;padding:0;border:0;border-radius:22px;color:#1b3444;background:white;box-shadow:0 20px 70px #102b4b44;overflow:auto;}
+.notifications-dialog::backdrop{background:#10243688;}
+.notifications-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:22px 22px 16px;position:sticky;top:0;background:white;z-index:1;border-bottom:1px solid #e4eaf0;}
+.notifications-head h2{margin:4px 0 0;color:#204f73;font-size:1.5rem;}
+.notification-eyebrow{font-size:.75rem;color:#617785;}
+.notifications-head .modal-close{flex-shrink:0;width:44px;height:44px;}
+.notifications-toolbar{display:flex;justify-content:space-between;gap:12px;padding:16px 22px 0;}
+.notifications-toolbar .mag-text-button{font-size:.8rem;margin:0;padding:4px 0;}
+.notifications-toolbar button:disabled{opacity:.5;cursor:default;}
+#notificationsStatus{padding:0 22px;font-size:.875rem;color:#5c707e;}
+.notifications-list{list-style:none;padding:0 16px 16px;margin:0;display:grid;gap:10px;}
+.notification-item{width:100%;box-sizing:border-box;display:grid;gap:7px;text-align:left;font:inherit;padding:16px;background:#fff;border:1px solid #dce5ed;border-radius:14px;color:#213d50;cursor:pointer;overflow-wrap:anywhere;}
+.notification-item.is-unread{background:#f0f7fd;border-left:4px solid #24577d;}
+.notification-kind{font-size:.68rem;font-weight:700;color:#607b8e;text-transform:uppercase;letter-spacing:.04em;}
+.notification-item strong{font-size:1rem;color:#204f73;}
+.notification-item>span:not(.notification-kind):not(.notification-open){font-size:.875rem;line-height:1.4;}
+.notification-item time{font-size:.75rem;color:#617785;}
+.notification-open{color:#24577d;font-size:.8rem;font-weight:700;}

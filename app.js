@@ -88,6 +88,7 @@ function restoreSessionIfAvailable(){
   updateDdtPushButton();
   openUploadedDdtFromLink();
   updateStockHome();
+  resetNotificationInbox();
 
   return true;
 }
@@ -202,6 +203,7 @@ async function doLogin(){
     updateDdtPushButton();
     openUploadedDdtFromLink();
     updateStockHome();
+  resetNotificationInbox();
 
   } catch (err) {
     stopProgress();
@@ -219,6 +221,7 @@ function logoutApp(){
   clearLoginSession();
 
   APP.user = null;
+  resetNotificationInbox();
   updateChangeOperatorButton();
 
   show("loginCard");

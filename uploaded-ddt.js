@@ -4,8 +4,7 @@ function closeUploadedDdt(){
   const state=uploadedDdtView;uploadedDdtView=undefined;
   state?.controller.abort();if(state?.url)URL.revokeObjectURL(state.url);state?.dialog.remove();DDTPDFViewer.close();
 }
-async function openUploadedDdtFromLink(){
-  const id=new URLSearchParams(location.search).get('ddt-caricato');
+async function openUploadedDdtFromLink(id=new URLSearchParams(location.search).get('ddt-caricato')){
   if(!id || !APP.user)return;
   // Consume the admin-only deep link once. It must not reopen after a camera
   // return/reload, and must never interrupt a worker's upload screen.
