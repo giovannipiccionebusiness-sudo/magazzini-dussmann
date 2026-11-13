@@ -8,8 +8,14 @@ function ddtPushSupported(){
 
 async function ddtPushRegistration(){
   const registration = await navigator.serviceWorker.getRegistration();
-  if (!registration?.active) throw new Error("Ricarica l’app prima di attivare le notifiche.");
-  return registration;
+  if (registration?.active) return registration;
+  let timeout;
+  try {
+    return await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error("L’app sta preparando le notifiche. Riprova tra poco.")), 10000); })
+    ]);
+  } finally { clearTimeout(timeout); }
 }
 
 async function ddtPushApi(action, fields = {}, user = APP.user, signal){
@@ -45,37 +51,107 @@ function offerDdtPushPrompt(){
   pushPromptPending = false;
   pushPromptFocus = document.activeElement;
   const supported = ddtPushSupported();
+  $("ddtPushPromptTitle").textContent = ["incomplete", "renew"].includes(pushLastState.kind) ? "Completa le notifiche" : "Attiva le notifiche";
   $("ddtPushPromptHelp").textContent = !supported
     ? "Per ricevere gli avvisi DDT, usa un browser compatibile. Su iPhone e iPad aggiungi l’app alla schermata Home da Safari e aprila dalla sua icona."
     : Notification.permission === "denied"
       ? "Le notifiche sono bloccate. Consenti le notifiche per Magazzini Dussmann nelle impostazioni del browser o del telefono, poi torna nell’app e tocca Attiva notifiche."
-      : "Attiva le notifiche per ricevere i promemoria dei DDT da caricare e aprire l’ordine collegato.";
+      : Notification.permission === "granted"
+        ? "Il permesso è già concesso. Completa il collegamento di questo dispositivo per ricevere i promemoria DDT."
+        : "Attiva le notifiche per ricevere i promemoria dei DDT da caricare e aprire l’ordine collegato.";
   $("ddtPushPromptActivate").classList.toggle("hidden", !supported);
   $("ddtPushPromptStatus").textContent = "";
   dialog.showModal();
 }
 
-async function updateDdtPushButton(prompt = true){
-  const button = $("ddtPushToggle");
-  const user = APP.user;
-  let active = false;
-  if (user && ddtPushSupported() && Notification.permission === "granted") {
-    try {
-      const registration = await ddtPushRegistration();
-      const subscription = await registration.pushManager.getSubscription();
-      active = !!subscription && localStorage.getItem(pushOwnerKey) === String(user.operatoreId);
-    } catch { /* Registration may still be installing. Rechecked on controller change. */ }
+let pushStateTask;
+let pushConfirmed;
+let pushLastState = { kind: "checking" };
+
+function pushOwnerRead(){
+  try { return localStorage.getItem(pushOwnerKey); } catch { return null; }
+}
+function pushOwnerWrite(id){
+  try { localStorage.setItem(pushOwnerKey, String(id)); } catch { /* Storage is optional, not proof of push activation. */ }
+}
+async function ddtPushTimedApi(action, fields, user){
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  try { return await ddtPushApi(action, fields, user, controller.signal); }
+  catch(error) { if (error.name === "AbortError") throw new Error("Il servizio notifiche tarda a rispondere. Riprova quando sei connesso."); throw error; }
+  finally { clearTimeout(timeout); }
+}
+function ddtPushPublicKey(value){
+  const encoded = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+  const bytes = Uint8Array.from(atob(encoded), char => char.charCodeAt(0));
+  if (bytes.length !== 65 || bytes[0] !== 4) throw new Error("Configurazione notifiche da verificare.");
+  return bytes;
+}
+function ddtPushKeyMatches(subscription, key){
+  const current = subscription?.options?.applicationServerKey;
+  return !!current && String(new Uint8Array(current)) === String(key);
+}
+function confirmDdtPush(user, subscription){
+  pushConfirmed = { user, endpoint: subscription.endpoint, until: Date.now() + 5 * 60 * 1000 };
+  pushOwnerWrite(user.operatoreId);
+}
+async function inspectDdtPush(user){
+  if (!user) return { kind: "signed-out" };
+  if (!ddtPushSupported()) return { kind: "unsupported" };
+  if (Notification.permission !== "granted") return { kind: "inactive" };
+  try {
+    const registration = await ddtPushRegistration();
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription) { pushConfirmed = undefined; return { kind: "incomplete" }; }
+    if (pushConfirmed?.user === user && pushConfirmed.endpoint === subscription.endpoint && pushConfirmed.until > Date.now()) return { kind: "active" };
+    const result = await ddtPushTimedApi("ddtPushKey", {}, user);
+    const key = ddtPushPublicKey(result.publicKey);
+    if (APP.user !== user) return { kind: "obsolete" };
+    if (!ddtPushKeyMatches(subscription, key)) return { kind: "renew" };
+    // Reconcile an existing browser subscription with the signed-in account.
+    // A lost local marker must not trigger a new permission prompt.
+    await ddtPushTimedApi("ddtPushSubscribe", { subscription: JSON.stringify(subscription) }, user);
+    if (APP.user !== user) {
+      if (String(APP.user?.operatoreId) !== String(user.operatoreId)) ddtPushTimedApi("ddtPushUnsubscribe", { endpoint: subscription.endpoint }, user).catch(() => {});
+      return { kind: "obsolete" };
+    }
+    confirmDdtPush(user, subscription);
+    return { kind: "active" };
+  } catch(error) {
+    return { kind: "unverified", message: error.message || "Controllo notifiche non riuscito." };
   }
-  if (APP.user !== user) return;
-  button.textContent = "Attiva notifiche DDT";
-  button.classList.toggle("hidden", !user || active || !ddtPushSupported());
-  if (!user || active) {
+}
+function renderDdtPushState(state, prompt){
+  pushLastState = state;
+  const button = $("ddtPushToggle"), status = $("ddtPushState");
+  const active = state.kind === "active";
+  const unavailable = ["signed-out", "checking", "obsolete"].includes(state.kind);
+  button.textContent = state.kind === "unverified" ? "Verifica notifiche DDT" : ["renew", "incomplete"].includes(state.kind) ? "Completa attivazione notifiche" : "Attiva notifiche DDT";
+  button.classList.toggle("hidden", active || unavailable || state.kind === "unsupported");
+  status.textContent = active ? "Notifiche DDT attive su questo dispositivo." : state.kind === "checking" ? "Verifica delle notifiche in corso…" : state.kind === "unverified" ? "Stato notifiche da verificare. " + state.message : "";
+  status.classList.toggle("hidden", !status.textContent || !APP.user);
+  if (active || unavailable || state.kind === "unverified") {
     pushPromptPending = false;
     if ($("ddtPushPrompt").open) closeDdtPushPrompt();
   } else if (prompt) {
     pushPromptPending = true;
     offerDdtPushPrompt();
   }
+}
+async function updateDdtPushButton(prompt = true){
+  if (pushToggleBusy) return;
+  const user = APP.user;
+  if (!pushStateTask || pushStateTask.user !== user) {
+    renderDdtPushState({kind:"checking"}, false);
+    const task = { user };
+    task.promise = inspectDdtPush(user);
+    pushStateTask = task;
+  }
+  const task = pushStateTask;
+  const state = await task.promise;
+  if (pushStateTask !== task || APP.user !== user || pushToggleBusy) return;
+  pushStateTask = undefined;
+  renderDdtPushState(state, prompt);
 }
 
 function scheduleDdtPushCheck(){
@@ -86,6 +162,7 @@ function scheduleDdtPushCheck(){
 
 window.addEventListener("focus", scheduleDdtPushCheck);
 window.addEventListener("pageshow", scheduleDdtPushCheck);
+window.addEventListener("online", scheduleDdtPushCheck);
 document.addEventListener("visibilitychange", scheduleDdtPushCheck);
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("controllerchange", scheduleDdtPushCheck);
 $("ddtPushPrompt").addEventListener("close", () => {
@@ -100,14 +177,15 @@ new MutationObserver(offerDdtPushPrompt).observe(document.body, {
 async function detachDdtPush(user){
   if (!ddtPushSupported()) return;
   try {
-    if (localStorage.getItem(pushOwnerKey) !== String(user.operatoreId)) return;
+    if (pushConfirmed?.user !== user && pushOwnerRead() !== String(user.operatoreId)) return;
+    pushConfirmed = undefined;
     const registration = await ddtPushRegistration();
     const subscription = await registration.pushManager.getSubscription();
-    if (subscription) {
-      await subscription.unsubscribe();
-      ddtPushApi("ddtPushUnsubscribe", { endpoint: subscription.endpoint }, user).catch(() => {});
+    if (subscription && (!APP.user || APP.user === user)) {
+      if (!APP.user) await subscription.unsubscribe();
+      if (String(APP.user?.operatoreId) !== String(user.operatoreId)) ddtPushApi("ddtPushUnsubscribe", { endpoint: subscription.endpoint }, user).catch(() => {});
     }
-    localStorage.removeItem(pushOwnerKey);
+    try { localStorage.removeItem(pushOwnerKey); } catch { /* Optional local marker. */ }
   } catch {
     // The browser can remove a subscription independently.
   }
@@ -118,43 +196,49 @@ async function toggleDdtPush(){
   if (!user || pushToggleBusy || !ddtPushSupported()) return;
   const button = $("ddtPushToggle");
   pushToggleBusy = true;
+  pushStateTask = undefined; // An earlier background check must not overwrite this activation.
+  let activationError;
   button.disabled = true;
   $("ddtPushPromptActivate").disabled = true;
   $("ddtPushPromptStatus").textContent = "Attivazione in corso…";
   try {
     if (!user.orderHistoryToken) throw new Error("Esci e accedi di nuovo per attivare le notifiche.");
-    const permission = await Notification.requestPermission();
+    const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
     if (permission !== "granted") throw new Error("Consenti le notifiche nelle impostazioni del dispositivo e riprova.");
     const registration = await ddtPushRegistration();
-    const result = await ddtPushApi("ddtPushKey", {}, user);
-    const bytes = Uint8Array.from(atob(result.publicKey.replace(/-/g, "+").replace(/_/g, "/")), char => char.charCodeAt(0));
+    const result = await ddtPushTimedApi("ddtPushKey", {}, user);
+    const bytes = ddtPushPublicKey(result.publicKey);
     const previous = await registration.pushManager.getSubscription();
-    const previousKey = previous?.options.applicationServerKey;
-    if (previous && (!previousKey || String(new Uint8Array(previousKey)) !== String(bytes))) await previous.unsubscribe();
-    const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
+    const sameKey = ddtPushKeyMatches(previous, bytes);
+    if (previous && !sameKey) await previous.unsubscribe();
+    const subscription = sameKey ? previous : await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
     if (APP.user !== user) {
-      await subscription.unsubscribe();
+      if (!APP.user) await subscription.unsubscribe();
       return;
     }
-    await ddtPushApi("ddtPushSubscribe", { subscription: JSON.stringify(subscription) }, user);
+    await ddtPushTimedApi("ddtPushSubscribe", { subscription: JSON.stringify(subscription) }, user);
     if (APP.user !== user) {
-      await subscription.unsubscribe();
-      ddtPushApi("ddtPushUnsubscribe", { endpoint: subscription.endpoint }, user).catch(() => {});
+      if (!APP.user) await subscription.unsubscribe();
+      if (String(APP.user?.operatoreId) !== String(user.operatoreId)) ddtPushApi("ddtPushUnsubscribe", { endpoint: subscription.endpoint }, user).catch(() => {});
       return;
     }
-    localStorage.setItem(pushOwnerKey, String(user.operatoreId));
+    confirmDdtPush(user, subscription);
     setMsg("mainMsg", "Notifiche DDT attive su questo dispositivo.", "ok");
   } catch (error) {
+    activationError = error;
     if (APP.user === user) {
       $("ddtPushPromptStatus").textContent = error.message || "Impossibile attivare le notifiche.";
-      setMsg("mainMsg", "Attivazione notifiche non completata. Riprova dal pulsante Attiva notifiche DDT.", "err");
+      setMsg("mainMsg", error.message || "Collegamento notifiche da verificare.", "err");
     }
   } finally {
     pushToggleBusy = false;
     button.disabled = false;
     $("ddtPushPromptActivate").disabled = false;
     clearTimeout(pushCheckTimer);
-    updateDdtPushButton(false);
+    if (APP.user === user) {
+      if (activationError && Notification.permission === "granted") renderDdtPushState({kind:"unverified",message:activationError.message},false);
+      else updateDdtPushButton(false);
+    }
   }
 }
 
