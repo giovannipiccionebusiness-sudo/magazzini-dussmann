@@ -86,6 +86,7 @@ function restoreSessionIfAvailable(){
   openDdtReminderFromLink();
   openDdtPushFromLink();
   updateDdtPushButton();
+  openUploadedDdtFromLink();
   updateStockHome();
 
   return true;
@@ -199,6 +200,7 @@ async function doLogin(){
     openDdtReminderFromLink();
     openDdtPushFromLink();
     updateDdtPushButton();
+    openUploadedDdtFromLink();
     updateStockHome();
 
   } catch (err) {
@@ -228,6 +230,7 @@ function logoutApp(){
   closeDdtReminder();
   closeDdtPushAdmin();
   closeDdtWhatsapp();
+  closeUploadedDdt();
   closeStockModal(true);
   hide("receiveModal");
   hide("deliveryModal");
@@ -256,6 +259,7 @@ function hideAllModals(){
   closeDdtReminder();
   closeDdtPushAdmin();
   closeDdtWhatsapp();
+  closeUploadedDdt();
   closeStockModal(true);
   hide("receiveModal");
   hide("deliveryModal");
@@ -792,6 +796,7 @@ function resizeImageToJpegBase64(file, maxWidth = 1400, quality = 0.78){
 }
 
 async function saveDdt(){
+  if (APP.ddtSaving) return;
   const file = $("ddtFile").files && $("ddtFile").files[0];
   const note = $("ddtNote").value.trim();
   const sede = $("sede").value;
@@ -807,6 +812,9 @@ async function saveDdt(){
   }
 
   try {
+    APP.ddtSaving = true;
+    const identity = [String(APP.user.operatoreId),sede,note].join('|');
+    if (!APP.ddtUploadAttempt || APP.ddtUploadAttempt.file !== file || APP.ddtUploadAttempt.identity !== identity) APP.ddtUploadAttempt = {file,identity,id:crypto.randomUUID()};
     startProgress("Preparazione DDT", "Compressione immagine in corso…");
 
     const dataUrl = await resizeImageToJpegBase64(file);
@@ -815,12 +823,15 @@ async function saveDdt(){
 
     await postDdtForm({
       operatoreId: APP.user.operatoreId,
+      uploadRequestId: APP.ddtUploadAttempt.id,
+      session: APP.user.orderHistoryToken || "",
       sede: sede,
       note: note,
       dataUrl: dataUrl,
       fileName: file.name || "ddt.jpg"
     });
 
+    APP.ddtUploadAttempt = null;
     stopProgress("DDT salvato");
 
     setMsg("ddtMsg", "DDT salvato correttamente.", "ok");
@@ -833,10 +844,21 @@ async function saveDdt(){
   } catch (err) {
     stopProgress();
     setMsg("ddtMsg", err.message, "err");
-  }
+  } finally { APP.ddtSaving = false; }
 }
 
 function postDdtForm(payload){
+  if (payload.uploadRequestId) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90000);
+    const body = new URLSearchParams({action:"uploadDdtVerified",...payload});
+    return fetch(API_URL,{method:"POST",body,signal:controller.signal}).then(async response => {
+      if (!response.ok) throw new Error("Caricamento non confermato. Riprova senza cambiare il documento.");
+      const result = await response.json();
+      if (!result.ok) throw new Error(result.error || "DDT non salvato. Riprova.");
+      return result;
+    }).catch(error => { if(error.name === "AbortError") throw new Error("Conferma non ricevuta. Riprova senza cambiare il documento."); throw error; }).finally(() => clearTimeout(timeout));
+  }
   return new Promise((resolve, reject) => {
     const iframeName = "ddt_upload_iframe_" + Date.now();
 
