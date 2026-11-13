@@ -911,7 +911,7 @@ a.ddt-whatsapp-open:focus-visible { outline:3px solid #1f4e78; outline-offset:3p
 
 /* Recipient inbox: secondary to the order and DDT actions. */
 .mag-home-header{padding-top:0;}
-.notification-bell{position:relative;width:44px;height:44px;display:grid;place-items:center;background:#e9f3fa;color:#204f73;border:1px solid #d5e3ee;border-radius:50%;cursor:pointer;}
+.notification-bell{position:relative;width:44px;height:44px;padding:0;margin:0;display:grid;place-items:center;background:#e9f3fa;color:#204f73;border:1px solid #d5e3ee;border-radius:50%;cursor:pointer;}
 .notification-bell svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
 .notification-bell:focus-visible,.notification-item:focus-visible{outline:3px solid #168ad0;outline-offset:3px;}
 .notification-badge{position:absolute;top:-4px;right:-5px;min-width:21px;height:21px;padding:0 4px;box-sizing:border-box;display:grid;place-items:center;border:2px solid white;border-radius:20px;background:#d50940;color:white;font-size:11px;font-weight:700;}
