@@ -119,30 +119,33 @@ button{
 
 .ddt-camera-frame {
   position: relative;
-  display: grid;
-  place-items: center;
-  height: clamp(240px, 54dvh, 520px);
+  width: 100%;
+  max-width: min(100%, calc(62dvh * 210 / 297));
+  aspect-ratio: 210 / 297;
+  margin-inline: auto;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 8px;
   background: #102030;
 }
 
 .ddt-camera-frame video {
+  position: absolute;
+  inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
-  min-height: 0;
   object-fit: cover;
+  object-position: center;
 }
 
 .ddt-camera-guide {
   position: absolute;
-  height: 84%;
-  max-width: 84%;
-  aspect-ratio: 210 / 297;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   box-sizing: border-box;
   border: 3px solid #43a9ff;
-  border-radius: 10px;
-  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 30%);
+  border-radius: 8px;
   pointer-events: none;
 }
 

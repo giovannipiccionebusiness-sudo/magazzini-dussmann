@@ -410,7 +410,7 @@ async function openDdtCamera(){
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 2560 }, height: { ideal: 1920 } }
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } }
     });
 
     if (ddtCameraRequest !== request) {
@@ -456,50 +456,44 @@ async function ddtImageDimensions(url){
   finally { image.src = ""; }
 }
 
+// The visible A4 viewport and the saved image use the same centred cover crop.
+function ddtA4Region(width, height){
+  if (!(width > 0 && height > 0)) throw new Error("Fotocamera non pronta.");
+  const ratio = 210 / 297;
+  const cropWidth = Math.min(width, height * ratio);
+  const cropHeight = cropWidth / ratio;
+  return {x:(width-cropWidth)/2,y:(height-cropHeight)/2,width:cropWidth,height:cropHeight};
+}
+
 async function captureDdtPhoto(){
   const request = ddtCameraRequest;
   const video = $("ddtCameraVideo");
-  if (!request || !video.videoWidth || !video.videoHeight) return;
+  if (!request || request.capturing || !video.videoWidth || !video.videoHeight) return;
   const captureButton = $("ddtCaptureBtn");
-  captureButton.disabled = true;
+  captureButton.disabled = true; request.capturing = true;
   try {
-    let blob;
-    const track = video.srcObject?.getVideoTracks()[0];
-    if (track && typeof ImageCapture !== "undefined") {
-      try {
-        const capture = new ImageCapture(track);
-        let settings = {};
-        try {
-          const caps = await capture.getPhotoCapabilities();
-          if (caps.imageWidth?.max) settings.imageWidth = Math.max(caps.imageWidth.min || 1, Math.min(3200, caps.imageWidth.max));
-        } catch { /* takePhoto works even without capability reporting. */ }
-        blob = await capture.takePhoto(settings);
-      } catch { /* Fall back only to a sufficiently detailed video frame. */ }
-    }
-    if (!blob) {
-      if (Math.max(video.videoWidth, video.videoHeight) < 1920) throw new Error("La fotocamera con riquadro offre una risoluzione troppo bassa. Usa la fotocamera del telefono per mantenere leggibili i caratteri piccoli.");
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-      canvas.getContext("2d").drawImage(video, 0, 0);
-      blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.97));
-    }
-    if (!blob) throw new Error("Foto non acquisita. Riprova con la fotocamera del telefono.");
-    const checkUrl = URL.createObjectURL(blob);
-    try {
-      const dimensions = await ddtImageDimensions(checkUrl);
-      if (Math.max(dimensions.width, dimensions.height) < 1920) throw new Error("Lo scatto ha una risoluzione troppo bassa. Usa la fotocamera del telefono.");
-    } finally { URL.revokeObjectURL(checkUrl); }
+    const region = ddtA4Region(video.videoWidth, video.videoHeight);
+    if (region.height < 1600) throw new Error("La fotocamera non fornisce abbastanza dettaglio per un A4 leggibile. Usa la fotocamera del telefono o carica una foto ad alta risoluzione.");
+    const scale = Math.min(1, 3200 / region.height);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(region.width * scale);
+    canvas.height = Math.round(region.height * scale);
+    const context = canvas.getContext("2d");
+    context.imageSmoothingEnabled = true; context.imageSmoothingQuality = "high";
+    context.drawImage(video, region.x, region.y, region.width, region.height, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve,"image/jpeg",0.97));
+    if (!blob) throw new Error("Foto non acquisita. Riprova.");
     if (ddtCameraRequest !== request) return;
     const files = new DataTransfer();
-    files.items.add(new File([blob], "ddt.jpg", { type: blob.type || "image/jpeg" }));
+    files.items.add(new File([blob],"ddt.jpg",{type:"image/jpeg"}));
     const input = $("ddtFile"); input.files = files.files;
     await previewDdt(input);
   } catch(error) {
     if (ddtCameraRequest !== request) return;
     closeDdtCamera();
-    setMsg("ddtMsg", error.message || "Scatta il DDT con la fotocamera del telefono.", "info");
+    setMsg("ddtMsg",error.message || "Scatta il DDT con la fotocamera del telefono.","info");
     show("ddtNativeCameraBtn");
-  } finally { captureButton.disabled = false; }
+  } finally { request.capturing = false; captureButton.disabled = false; }
 }
 
 window.addEventListener("pagehide", closeDdtCamera);
