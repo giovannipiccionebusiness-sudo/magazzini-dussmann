@@ -614,7 +614,10 @@ async function saveDdt(){
 
     const dataUrl = await resizeImageToJpegBase64(file);
 
-    startProgress("Salvataggio DDT", "Invio al backend…");
+    startProgress("Caricamento DDT", "Invio della foto in alta qualità. Attendi la conferma senza chiudere questa schermata.");
+    APP.ddtSlowTimer = setTimeout(() => {
+      $("progressText").textContent = "Il caricamento è ancora in corso. Con una foto grande o una connessione lenta può richiedere più tempo.";
+    }, 15000);
 
     await postDdtForm({
       operatoreId: APP.user.operatoreId,
@@ -631,15 +634,19 @@ async function saveDdt(){
 
     setMsg("ddtMsg", "DDT salvato correttamente.", "ok");
 
-    setTimeout(() => {
-      closeDdtModal();
-      setMsg("mainMsg", "DDT salvato correttamente.", "ok");
-    }, 900);
+    closeDdtModal();
+    setMsg("mainMsg", "DDT salvato correttamente.", "ok");
+    $("ddtUploadSuccess").showModal();
 
   } catch (err) {
     stopProgress();
-    setMsg("ddtMsg", err.message, "err");
-  } finally { APP.ddtSaving = false; }
+    $("ddtMsg").textContent = err.message || "Conferma non ricevuta. Riprova senza cambiare il documento.";
+    $("ddtMsg").className = "msg err";
+    $("ddtMsg").scrollIntoView({block:"nearest"});
+  } finally {
+    clearTimeout(APP.ddtSlowTimer);
+    APP.ddtSaving = false;
+  }
 }
 
 function postDdtForm(payload){

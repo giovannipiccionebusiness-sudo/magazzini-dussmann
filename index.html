@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="it" data-app-version="1.8.29">
+<html lang="it" data-app-version="1.8.30">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Magazzini Dussmann</title>
 
-  <link rel="stylesheet" href="style.css?v=1.8.29" />
-  <link rel="stylesheet" href="pdf-viewer.css?v=1.8.29" />
+  <link rel="stylesheet" href="style.css?v=1.8.30" />
+  <link rel="stylesheet" href="pdf-viewer.css?v=1.8.30" />
   <link rel="manifest" href="manifest.json" />
 
   <meta name="theme-color" content="#1f4e78" />
@@ -20,7 +20,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  <link rel="stylesheet" href="stock-check.css?v=1.8.29">
+  <link rel="stylesheet" href="stock-check.css?v=1.8.30">
 </head>
 
 <body>
@@ -47,7 +47,7 @@
 
       <button class="btn btn-primary" onclick="doLogin()">Entra</button>
       <div id="loginMsg" class="msg info">Seleziona il tuo nome e inserisci il PIN.</div>
-      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.29" width="900" height="507" alt="" />
+      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.30" width="900" height="507" alt="" />
     </div>
 
     <div class="card hidden" id="appCard">
@@ -93,7 +93,7 @@
       <p id="ddtPushState" class="stock-home-hint hidden" role="status" aria-live="polite"></p>
       <button id="ddtPushToggle" type="button" class="mag-text-button hidden" onclick="toggleDdtPush()">Attiva notifiche DDT</button>
 
-      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.29" width="900" height="507" alt="" />
+      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.30" width="900" height="507" alt="" />
 
       <div id="mainMsg" class="msg info" role="status">Seleziona la sede e scegli l’operazione.</div>
       <button type="button" id="changeOperatorBtn" class="mag-text-button mag-change-user hidden" onclick="changeOperator()">Cambia operatore</button>
@@ -397,8 +397,14 @@
 
   <footer class="app-version">
     <button id="installBtn" type="button" class="mag-text-button hidden" aria-haspopup="dialog" aria-controls="installDialog" onclick="openInstallDialog()">Installa app</button>
-    <div>Magazzini Dussmann · Versione 1.8.29</div>
+    <div>Magazzini Dussmann · Versione 1.8.30</div>
   </footer>
+
+  <dialog id="ddtUploadSuccess" class="app-update" aria-labelledby="ddtUploadSuccessTitle" aria-describedby="ddtUploadSuccessText">
+    <h2 id="ddtUploadSuccessTitle">Caricamento completato</h2>
+    <p id="ddtUploadSuccessText">Il DDT è stato salvato correttamente.</p>
+    <form method="dialog"><button type="submit" class="btn btn-primary">Va bene</button></form>
+  </dialog>
 
   <dialog id="ddtPushPrompt" class="app-update" aria-labelledby="ddtPushPromptTitle" aria-describedby="ddtPushPromptHelp">
     <h2 id="ddtPushPromptTitle">Attiva le notifiche</h2>
@@ -427,11 +433,11 @@
   <div id="stockModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="stockTitle">
     <div class="modal-card"><div class="modal-head"><h2 id="stockTitle">Verifica scorte</h2><button id="stockClose" type="button" class="modal-close" aria-label="Chiudi verifica scorte" onclick="closeStockModal()">×</button></div><div id="stockContent"></div></div>
   </div>
-  <script src="pdf-viewer.js?v=1.8.29"></script>
-  <script src="app.js?v=1.8.29"></script>
-  <script src="ddt-push.js?v=1.8.29"></script>
-  <script src="ddt-whatsapp.js?v=1.8.29"></script>
-  <script src="stock-check.js?v=1.8.29"></script>
-  <script src="uploaded-ddt.js?v=1.8.29"></script>
+  <script src="pdf-viewer.js?v=1.8.30"></script>
+  <script src="app.js?v=1.8.30"></script>
+  <script src="ddt-push.js?v=1.8.30"></script>
+  <script src="ddt-whatsapp.js?v=1.8.30"></script>
+  <script src="stock-check.js?v=1.8.30"></script>
+  <script src="uploaded-ddt.js?v=1.8.30"></script>
 </body>
 </html>
