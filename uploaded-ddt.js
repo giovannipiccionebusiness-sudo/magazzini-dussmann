@@ -7,6 +7,12 @@ function closeUploadedDdt(){
 async function openUploadedDdtFromLink(){
   const id=new URLSearchParams(location.search).get('ddt-caricato');
   if(!id || !APP.user)return;
+  // Consume the admin-only deep link once. It must not reopen after a camera
+  // return/reload, and must never interrupt a worker's upload screen.
+  const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('ddt-caricato');
+  history.replaceState(history.state,'',cleanUrl.pathname+cleanUrl.search+cleanUrl.hash);
+  if(APP.user.role!=='ADMIN')return;
+  if(!/^[A-Za-z0-9_-]{10,100}$/.test(id))return;
   closeUploadedDdt();hideAllModals();
   const dialog=document.createElement('dialog');dialog.className='uploaded-ddt-dialog';dialog.setAttribute('aria-label','DDT caricato');
   const header=document.createElement('div');header.className='uploaded-ddt-head';
@@ -16,7 +22,6 @@ async function openUploadedDdtFromLink(){
   dialog.append(header,status);document.body.append(dialog);
   const state={dialog,controller:new AbortController(),url:''};uploadedDdtView=state;
   dialog.addEventListener('cancel',event=>{event.preventDefault();closeUploadedDdt();});dialog.showModal();close.focus();
-  if(APP.user.role!=='ADMIN'){status.textContent='Accedi con il tuo account admin per aprire il DDT.';return;}
   const timeout=setTimeout(()=>state.controller.abort(),45000);
   try{
     const body=new URLSearchParams({action:'getUploadedDdt',id,session:APP.user.orderHistoryToken || ''});
