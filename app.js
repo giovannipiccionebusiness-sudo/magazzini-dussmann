@@ -410,7 +410,7 @@ async function openDdtCamera(){
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
-      video: { facingMode: { ideal: "environment" } }
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } }
     });
 
     if (ddtCameraRequest !== request) {
@@ -418,6 +418,11 @@ async function openDdtCamera(){
       return;
     }
 
+    const track = stream.getVideoTracks()[0];
+    try {
+      if (track?.getCapabilities?.().focusMode?.includes("continuous")) await track.applyConstraints({advanced:[{focusMode:"continuous"}]});
+    } catch { /* Some browsers do not expose focus controls. */ }
+    if (ddtCameraRequest !== request) { stream.getTracks().forEach(t => t.stop()); return; }
     video.srcObject = stream;
     await video.play();
     if (ddtCameraRequest === request) $("ddtCaptureBtn").disabled = false;
@@ -439,32 +444,56 @@ function closeDdtCamera(){
   hide("ddtCameraPanel");
 }
 
-function captureDdtPhoto(){
+function openNativeDdtCamera(){
+  closeDdtCamera();
+  $("ddtCamera").value = "";
+  $("ddtCamera").click();
+}
+
+async function captureDdtPhoto(){
   const request = ddtCameraRequest;
   const video = $("ddtCameraVideo");
   if (!request || !video.videoWidth || !video.videoHeight) return;
-
   const captureButton = $("ddtCaptureBtn");
   captureButton.disabled = true;
-  const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext("2d").drawImage(video, 0, 0);
-
-  canvas.toBlob(blob => {
-    if (ddtCameraRequest !== request) return;
-    if (!blob) {
-      captureButton.disabled = false;
-      setMsg("ddtMsg", "Foto non acquisita. Riprova.", "err");
-      return;
+  try {
+    let blob;
+    const track = video.srcObject?.getVideoTracks()[0];
+    if (track && typeof ImageCapture !== "undefined") {
+      try {
+        const capture = new ImageCapture(track);
+        let settings = {};
+        try {
+          const caps = await capture.getPhotoCapabilities();
+          if (caps.imageWidth?.max) settings.imageWidth = Math.max(caps.imageWidth.min || 1, Math.min(4032, caps.imageWidth.max));
+        } catch { /* takePhoto works even without capability reporting. */ }
+        blob = await capture.takePhoto(settings);
+      } catch { /* Fall back only to a sufficiently detailed video frame. */ }
     }
-
+    if (!blob) {
+      if (Math.max(video.videoWidth, video.videoHeight) < 2000) throw new Error("La fotocamera con riquadro offre una risoluzione troppo bassa. Usa la fotocamera del telefono per mantenere leggibili i caratteri piccoli.");
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      canvas.getContext("2d").drawImage(video, 0, 0);
+      blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.97));
+    }
+    if (!blob) throw new Error("Foto non acquisita. Riprova con la fotocamera del telefono.");
+    const checkUrl = URL.createObjectURL(blob);
+    try {
+      const image = new Image(); image.src = checkUrl; await image.decode();
+      if (Math.max(image.naturalWidth, image.naturalHeight) < 2000) throw new Error("Lo scatto ha una risoluzione troppo bassa. Usa la fotocamera del telefono.");
+    } finally { URL.revokeObjectURL(checkUrl); }
+    if (ddtCameraRequest !== request) return;
     const files = new DataTransfer();
-    files.items.add(new File([blob], "ddt.jpg", { type: "image/jpeg" }));
-    const input = $("ddtFile");
-    input.files = files.files;
-    previewDdt(input);
-  }, "image/jpeg", 0.92);
+    files.items.add(new File([blob], "ddt.jpg", { type: blob.type || "image/jpeg" }));
+    const input = $("ddtFile"); input.files = files.files;
+    await previewDdt(input);
+  } catch(error) {
+    if (ddtCameraRequest !== request) return;
+    closeDdtCamera();
+    setMsg("ddtMsg", error.message || "Scatta il DDT con la fotocamera del telefono.", "info");
+    show("ddtNativeCameraBtn");
+  } finally { captureButton.disabled = false; }
 }
 
 window.addEventListener("pagehide", closeDdtCamera);
@@ -502,49 +531,62 @@ async function previewDdt(input){
   const cameraInput = $("ddtCamera");
   if (input === cameraInput) $("ddtFile").files = cameraInput.files;
   cameraInput.value = "";
-  closeDdtCamera();
-  hide("ddtNativeCameraBtn");
-  clearDdtScan();
-
-  hide("ddtSourceActions");
-  $("ddtScroll").scrollTop = 0;
-
-  const saveButton = $("ddtSaveBtn");
-  saveButton.disabled = true;
-  setMsg("ddtMsg", "Preparazione scansione…", "info");
+  closeDdtCamera(); hide("ddtNativeCameraBtn"); clearDdtScan();
+  hide("ddtSourceActions"); $("ddtScroll").scrollTop = 0;
+  const saveButton = $("ddtSaveBtn"); saveButton.disabled = true;
   const url = URL.createObjectURL(file);
-  const scan = { original: file, urls: [url] };
-  ddtScan = scan;
-
+  const scan = {original:file,urls:[url],image:null}; ddtScan = scan;
   try {
-    const image = new Image();
-    image.src = url;
-    await image.decode();
-    const canvas = scanDdtDocument(image);
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.94));
+    const image = new Image(); image.src = url; await image.decode();
     if (ddtScan !== scan) return;
-    if (!blob) throw new Error("Scansione non disponibile");
-    scan.improved = new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
-    scan.urls.push(URL.createObjectURL(scan.improved));
-    showDdtScan(true);
-    show("ddtScanOptions");
-    hide("ddtMsg");
+    scan.image = image;
+    showDdtScan(false); show("ddtScanOptions");
+    const low = Math.max(image.naturalWidth,image.naturalHeight) < 2000;
+    setMsg("ddtMsg", low
+      ? "Risoluzione bassa ("+image.naturalWidth+" × "+image.naturalHeight+" pixel): per leggere tutto il DDT è consigliabile scattare una nuova foto con il telefono."
+      : "Originale selezionato: il dettaglio della foto viene mantenuto. Puoi scegliere Ritaglia e migliora se necessario.", low ? "err" : "info");
   } catch {
     if (ddtScan !== scan) return;
-    showDdtScan(false);
-    setMsg("ddtMsg", "È stata mantenuta l’immagine originale.", "info");
+    setMsg("ddtMsg", "Immagine non leggibile. Scegli una foto JPEG o PNG del DDT.", "err");
+    return;
   } finally {
     if (ddtScan === scan) {
-      saveButton.disabled = false;
-      show("ddtReview");
-      show("ddtFooter");
+      saveButton.disabled = !scan.image;
+      $("ddtOriginalBtn").disabled = false;
+      $("ddtImprovedBtn").disabled = false;
+      show("ddtReview"); show("ddtFooter");
     }
+  }
+}
+
+async function improveSelectedDdt(){
+  const scan = ddtScan;
+  if (!scan?.image || scan.preparing) return;
+  if (scan.improved) { showDdtScan(true); return; }
+  scan.preparing = true; $("ddtOriginalBtn").disabled = true; $("ddtImprovedBtn").disabled = true; $("ddtSaveBtn").disabled = true;
+  setMsg("ddtMsg", "Ritaglio e miglioramento in alta qualità…", "info");
+  try {
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (ddtScan !== scan) return;
+    const canvas = scanDdtDocument(scan.image);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.97));
+    if (ddtScan !== scan) return;
+    if (!blob) throw new Error("Scansione non disponibile");
+    scan.improved = new File([blob],scan.original.name.replace(/\.[^.]+$/,"")+".jpg",{type:"image/jpeg"});
+    scan.urls[1] = URL.createObjectURL(scan.improved); showDdtScan(true);
+    setMsg("ddtMsg", "Controlla i caratteri piccoli e il ritaglio. Puoi sempre tornare all’Originale.", "info");
+  } catch {
+    if (ddtScan === scan) { showDdtScan(false); setMsg("ddtMsg","Miglioramento non disponibile: viene mantenuto l’originale.","info"); }
+  } finally {
+    scan.preparing = false;
+    if (ddtScan === scan) { $("ddtOriginalBtn").disabled = false; $("ddtImprovedBtn").disabled = false; $("ddtSaveBtn").disabled = false; }
   }
 }
 
 function showDdtScan(improved){
   if (!ddtScan) return;
   const file = improved ? ddtScan.improved : ddtScan.original;
+  if (!file) return;
   const transfer = new DataTransfer();
   transfer.items.add(file);
   $("ddtFile").files = transfer.files;
@@ -556,7 +598,7 @@ function showDdtScan(improved){
 
 function scanDdtDocument(image){
   const source = document.createElement("canvas");
-  const scale = Math.min(1, 1800 / Math.max(image.naturalWidth, image.naturalHeight));
+  const scale = Math.min(1, 3200 / Math.max(image.naturalWidth, image.naturalHeight));
   source.width = Math.max(1, Math.round(image.naturalWidth * scale));
   source.height = Math.max(1, Math.round(image.naturalHeight * scale));
   const sourceContext = source.getContext("2d");
@@ -760,39 +802,34 @@ function findDdtCorners(pixels, width, height){
   return corners;
 }
 
-function resizeImageToJpegBase64(file, maxWidth = 1400, quality = 0.78){
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = function(e){
-      const img = new Image();
-
-      img.onload = function(){
-        let width = img.width;
-        let height = img.height;
-
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        }
-
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, width, height);
-
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      };
-
-      img.onerror = reject;
-      img.src = e.target.result;
-    };
-
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+const DDT_MAX_UPLOAD_BYTES = 7 * 1024 * 1024;
+function readDdtFileDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader(); reader.onload=()=>resolve(reader.result); reader.onerror=()=>reject(new Error("Impossibile leggere il file del DDT.")); reader.readAsDataURL(file);
   });
+}
+async function resizeImageToJpegBase64(file, maxEdge = 3200, quality = 0.97){
+  // Preserve an already usable JPEG/PNG/WebP byte for byte: no second JPEG pass.
+  if (["image/jpeg","image/png","image/webp","application/pdf"].includes(file.type) && file.size <= DDT_MAX_UPLOAD_BYTES) return readDdtFileDataUrl(file);
+  const url=URL.createObjectURL(file);
+  try {
+    const image=new Image();image.src=url;await image.decode();
+    let edge=maxEdge;
+    for(let attempt=0;attempt<4;attempt++){
+      const scale=Math.min(1,edge/Math.max(image.naturalWidth,image.naturalHeight));
+      const canvas=document.createElement("canvas");
+      canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));
+      canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));
+      const context=canvas.getContext("2d");context.fillStyle="#fff";context.fillRect(0,0,canvas.width,canvas.height);
+      context.imageSmoothingEnabled=true;context.imageSmoothingQuality="high";
+      context.drawImage(image,0,0,canvas.width,canvas.height);
+      const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",quality));
+      if(!blob)throw new Error("Preparazione della foto non riuscita.");
+      if(blob.size<=DDT_MAX_UPLOAD_BYTES)return readDdtFileDataUrl(blob);
+      edge=Math.floor(edge*.85);
+    }
+    throw new Error("Foto troppo grande: scatta nuovamente il DDT o scegli un file più piccolo.");
+  } finally {URL.revokeObjectURL(url);}
 }
 
 async function saveDdt(){
@@ -815,7 +852,7 @@ async function saveDdt(){
     APP.ddtSaving = true;
     const identity = [String(APP.user.operatoreId),sede,note].join('|');
     if (!APP.ddtUploadAttempt || APP.ddtUploadAttempt.file !== file || APP.ddtUploadAttempt.identity !== identity) APP.ddtUploadAttempt = {file,identity,id:crypto.randomUUID()};
-    startProgress("Preparazione DDT", "Compressione immagine in corso…");
+    startProgress("Preparazione DDT", "Preparazione della foto in alta qualità…");
 
     const dataUrl = await resizeImageToJpegBase64(file);
 
