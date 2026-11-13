@@ -26,13 +26,14 @@ async function ddtPushApi(action, fields = {}, user = APP.user, signal){
   const response = await fetch(API_URL, { method: "POST", body, signal, keepalive: action === "ddtPushUnsubscribe" });
   if (!response.ok) throw new Error("Servizio notifiche non raggiungibile.");
   const result = await response.json();
-  if (!result.ok) throw Object.assign(new Error(result.error || "Notifiche non disponibili."), { sessionRequired: result.sessionRequired });
+  if (!result.ok) throw Object.assign(new Error(result.error || "Notifiche non disponibili."), { sessionRequired: result.sessionRequired, expired:result.expired });
   return result;
 }
 
 let pushPromptPending = false;
 let pushCheckTimer;
 let pushPromptFocus;
+const pushPromptOffered = new Set();
 
 function closeDdtPushPrompt(){
   pushPromptPending = false;
@@ -49,6 +50,9 @@ function offerDdtPushPrompt(){
   if (!pushPromptPending || pushToggleBusy || document.visibilityState !== "visible" || dialog.open) return;
   if (document.querySelector("dialog[open]") || document.querySelector(".modal:not(.hidden)")) return;
   pushPromptPending = false;
+  const promptKey=String(APP.user.operatoreId)+':'+(typeof Notification==='undefined'?'unsupported':Notification.permission)+':'+pushLastState.kind;
+  if(pushPromptOffered.has(promptKey))return;
+  pushPromptOffered.add(promptKey);
   pushPromptFocus = document.activeElement;
   const supported = ddtPushSupported();
   $("ddtPushPromptTitle").textContent = ["incomplete", "renew"].includes(pushLastState.kind) ? "Completa le notifiche" : "Attiva le notifiche";
@@ -66,6 +70,7 @@ function offerDdtPushPrompt(){
 
 let pushStateTask;
 let pushConfirmed;
+let pushExpiredEndpoint;
 let pushLastState = { kind: "checking" };
 
 function pushOwnerRead(){
@@ -101,13 +106,22 @@ async function inspectDdtPush(user){
   if (Notification.permission !== "granted") return { kind: "inactive" };
   try {
     const registration = await ddtPushRegistration();
-    const subscription = await registration.pushManager.getSubscription();
-    if (!subscription) { pushConfirmed = undefined; return { kind: "incomplete" }; }
-    if (pushConfirmed?.user === user && pushConfirmed.endpoint === subscription.endpoint && pushConfirmed.until > Date.now()) return { kind: "active" };
+    let subscription = await registration.pushManager.getSubscription();
+    const expired=subscription?.expirationTime && subscription.expirationTime<=Date.now();
+    if (!expired && pushConfirmed?.user === user && pushConfirmed.endpoint === subscription?.endpoint && pushConfirmed.until > Date.now()) return { kind: "active" };
     const result = await ddtPushTimedApi("ddtPushKey", {}, user);
     const key = ddtPushPublicKey(result.publicKey);
     if (APP.user !== user) return { kind: "obsolete" };
-    if (!ddtPushKeyMatches(subscription, key)) return { kind: "renew" };
+    if (!subscription || expired || subscription.endpoint===pushExpiredEndpoint || (subscription.options?.applicationServerKey && !ddtPushKeyMatches(subscription,key))) {
+      if(subscription){await subscription.unsubscribe();subscription=null;}
+      if(APP.user!==user)return {kind:"obsolete"};
+      try{subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});}
+      catch(error){
+        if(error.name==='NotAllowedError')return {kind:"incomplete"};
+        throw error;
+      }
+    }
+    if(APP.user!==user)return {kind:"obsolete"};
     // Reconcile an existing browser subscription with the signed-in account.
     // A lost local marker must not trigger a new permission prompt.
     await ddtPushTimedApi("ddtPushSubscribe", { subscription: JSON.stringify(subscription) }, user);
@@ -181,11 +195,10 @@ async function detachDdtPush(user){
     pushConfirmed = undefined;
     const registration = await ddtPushRegistration();
     const subscription = await registration.pushManager.getSubscription();
-    if (subscription && (!APP.user || APP.user === user)) {
-      if (!APP.user) await subscription.unsubscribe();
+    if (subscription) {
       if (String(APP.user?.operatoreId) !== String(user.operatoreId)) ddtPushApi("ddtPushUnsubscribe", { endpoint: subscription.endpoint }, user).catch(() => {});
     }
-    try { localStorage.removeItem(pushOwnerKey); } catch { /* Optional local marker. */ }
+    try { if(pushOwnerRead()===String(user.operatoreId))localStorage.removeItem(pushOwnerKey); } catch { /* Optional local marker. */ }
   } catch {
     // The browser can remove a subscription independently.
   }
@@ -194,6 +207,7 @@ async function detachDdtPush(user){
 async function toggleDdtPush(){
   const user = APP.user;
   if (!user || pushToggleBusy || !ddtPushSupported()) return;
+  if(pushStateTask?.user===user){await pushStateTask.promise;if(APP.user!==user || pushToggleBusy)return;}
   const button = $("ddtPushToggle");
   pushToggleBusy = true;
   pushStateTask = undefined; // An earlier background check must not overwrite this activation.
@@ -208,17 +222,17 @@ async function toggleDdtPush(){
     const registration = await ddtPushRegistration();
     const result = await ddtPushTimedApi("ddtPushKey", {}, user);
     const bytes = ddtPushPublicKey(result.publicKey);
+    if(APP.user!==user)return;
     const previous = await registration.pushManager.getSubscription();
-    const sameKey = ddtPushKeyMatches(previous, bytes);
+    if(APP.user!==user)return;
+    const sameKey = previous && (!previous.options?.applicationServerKey || ddtPushKeyMatches(previous, bytes));
     if (previous && !sameKey) await previous.unsubscribe();
     const subscription = sameKey ? previous : await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
     if (APP.user !== user) {
-      if (!APP.user) await subscription.unsubscribe();
       return;
     }
     await ddtPushTimedApi("ddtPushSubscribe", { subscription: JSON.stringify(subscription) }, user);
     if (APP.user !== user) {
-      if (!APP.user) await subscription.unsubscribe();
       if (String(APP.user?.operatoreId) !== String(user.operatoreId)) ddtPushApi("ddtPushUnsubscribe", { endpoint: subscription.endpoint }, user).catch(() => {});
       return;
     }
@@ -345,3 +359,35 @@ async function sendDdtPush(){
     }
   }
 }
+
+// A real server-to-device push test, initiated only by the current recipient.
+let ddtPushTest;
+async function testDdtPush(){
+  if(!APP.user || ddtPushTest?.busy)return;
+  const user=APP.user,button=$('notificationsTest'),status=$('notificationsTestStatus');
+  const state={id:crypto.randomUUID(),user,busy:true,received:false};ddtPushTest=state;
+  button.disabled=true;status.textContent='Verifica del collegamento e invio della prova…';
+  try{
+    const checked=await inspectDdtPush(user);
+    if(APP.user!==user)return;
+    renderDdtPushState(checked,false);
+    if(checked.kind!=='active')throw Error('Completa il collegamento delle notifiche, poi riprova.');
+    const registration=await ddtPushRegistration(),sub=await registration.pushManager.getSubscription();
+    state.endpoint=sub?.endpoint;
+    if(!sub)throw Error('Iscrizione non disponibile. Riprova l’attivazione.');
+    const result=await ddtPushTimedApi('ddtPushTest',{endpoint:sub.endpoint,requestId:state.id},user);
+    if(APP.user!==user || ddtPushTest!==state)return;
+    if(!state.received)status.textContent=result.accepted?'Prova inviata al servizio. Attendi la notifica su questo dispositivo.':'Invio non riuscito. Riprova il collegamento.';
+  }catch(error){
+    if(APP.user===user && ddtPushTest===state && !state.received){
+      status.textContent=error.message;
+      if(error.expired){pushExpiredEndpoint=state.endpoint;pushConfirmed=undefined;updateDdtPushButton(false);}
+    }
+  }
+  finally{state.busy=false;button.disabled=false;}
+}
+if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',event=>{
+  if(event.data?.type!=='DDT_PUSH_TEST_RECEIVED' || !ddtPushTest || event.data.id!==ddtPushTest.id || APP.user!==ddtPushTest.user)return;
+  ddtPushTest.received=true;
+  $('notificationsTestStatus').textContent='Prova ricevuta su questo dispositivo. Il collegamento push funziona.';
+});

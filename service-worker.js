@@ -1,4 +1,4 @@
-const VERSION = "1.8.33";
+const VERSION = "1.8.34";
 const CACHE_PREFIX = "magazzini-dussmann-";
 const CACHE_NAME = CACHE_PREFIX + VERSION;
 
@@ -58,12 +58,16 @@ self.addEventListener("push", event => {
   try { data = event.data.json(); } catch { return; }
   let url;
   try { url = new URL(data.url); } catch { return; }
-  if (!url.href.startsWith(self.registration.scope) || (!url.searchParams.get("ordine-ddt") && !url.searchParams.get("ddt-caricato"))) return;
-  event.waitUntil(Promise.all([
-    self.clients.matchAll({type:"window",includeUncontrolled:true}).then(clients=>{for(const client of clients)client.postMessage({type:"DDT_NOTIFICATION_RECEIVED"});}),
-    self.registration.showNotification(data.type === "ddt-uploaded" ? "Nuovo DDT caricato" : "Magazzini Dussmann", {
-    body: data.body, icon: "./icons/icon-192.png", data: { url: url.href }
-  })]));
+  if (!url.href.startsWith(self.registration.scope) || (!url.searchParams.get("ordine-ddt") && !url.searchParams.get("ddt-caricato") && !(data.type==='ddt-test' && /^[0-9a-f-]{36}$/i.test(data.testId || '')))) return;
+  event.waitUntil((async()=>{
+    await self.registration.showNotification(data.type === "ddt-test" ? "Prova notifiche Magazzini Dussmann" : data.type === "ddt-uploaded" ? "Nuovo DDT caricato" : "Magazzini Dussmann", {
+      body:data.body,icon:"./icons/icon-192.png",data:{url:url.href}
+    });
+    const windows=await self.clients.matchAll({type:"window",includeUncontrolled:true}).catch(()=>[]);
+    for(const client of windows)try{
+      client.postMessage(data.type==='ddt-test'?{type:"DDT_PUSH_TEST_RECEIVED",id:data.testId}:{type:"DDT_NOTIFICATION_RECEIVED"});
+    }catch{}
+  })());
 });
 
 self.addEventListener("notificationclick", event => {
