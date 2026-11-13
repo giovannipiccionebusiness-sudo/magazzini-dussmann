@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="it" data-app-version="1.8.31">
+<html lang="it" data-app-version="1.8.32">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Magazzini Dussmann</title>
 
-  <link rel="stylesheet" href="style.css?v=1.8.31" />
-  <link rel="stylesheet" href="pdf-viewer.css?v=1.8.31" />
+  <link rel="stylesheet" href="style.css?v=1.8.32" />
+  <link rel="stylesheet" href="pdf-viewer.css?v=1.8.32" />
   <link rel="manifest" href="manifest.json" />
 
   <meta name="theme-color" content="#1f4e78" />
@@ -20,7 +20,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  <link rel="stylesheet" href="stock-check.css?v=1.8.31">
+  <link rel="stylesheet" href="stock-check.css?v=1.8.32">
 </head>
 
 <body>
@@ -31,6 +31,10 @@
         src="https://en.dussmann.de/germany/logos/dussmann/logo-rgb.svg"
         alt="Dussmann"
         class="company-logo">
+        <button id="notificationBell" class="notification-bell hidden" type="button" aria-label="Notifiche" aria-haspopup="dialog" aria-expanded="false" aria-controls="notificationsDialog" onclick="openNotifications()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+          <span id="notificationBadge" class="notification-badge hidden" aria-hidden="true">0</span>
+        </button>
     </div>
 
     <div class="card" id="loginCard">
@@ -47,15 +51,12 @@
 
       <button class="btn btn-primary" onclick="doLogin()">Entra</button>
       <div id="loginMsg" class="msg info">Seleziona il tuo nome e inserisci il PIN.</div>
-      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.31" width="900" height="507" alt="" />
+      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.32" width="900" height="507" alt="" />
     </div>
 
     <div class="card hidden" id="appCard">
       <header class="mag-home-header">
-        <button id="notificationBell" class="notification-bell" type="button" aria-label="Notifiche" aria-haspopup="dialog" aria-expanded="false" aria-controls="notificationsDialog" onclick="openNotifications()">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
-          <span id="notificationBadge" class="notification-badge hidden" aria-hidden="true">0</span>
-        </button>
+
         <h1>Magazzini Dussmann</h1>
         <div class="mag-home-account">
           <span id="chipOperatore">Operatore: --</span>
@@ -97,7 +98,7 @@
       <p id="ddtPushState" class="stock-home-hint hidden" role="status" aria-live="polite"></p>
       <button id="ddtPushToggle" type="button" class="mag-text-button hidden" onclick="toggleDdtPush()">Attiva notifiche DDT</button>
 
-      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.31" width="900" height="507" alt="" />
+      <img class="mag-home-art" src="magazzino-home.webp?v=1.8.32" width="900" height="507" alt="" />
 
       <div id="mainMsg" class="msg info" role="status">Seleziona la sede e scegli l’operazione.</div>
       <button type="button" id="changeOperatorBtn" class="mag-text-button mag-change-user hidden" onclick="changeOperator()">Cambia operatore</button>
@@ -401,7 +402,7 @@
 
   <footer class="app-version">
     <button id="installBtn" type="button" class="mag-text-button hidden" aria-haspopup="dialog" aria-controls="installDialog" onclick="openInstallDialog()">Installa app</button>
-    <div>Magazzini Dussmann · Versione 1.8.31</div>
+    <div>Magazzini Dussmann · Versione 1.8.32</div>
   </footer>
 
   <dialog id="notificationsDialog" class="notifications-dialog" aria-labelledby="notificationsTitle">
@@ -444,12 +445,12 @@
   <div id="stockModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="stockTitle">
     <div class="modal-card"><div class="modal-head"><h2 id="stockTitle">Verifica scorte</h2><button id="stockClose" type="button" class="modal-close" aria-label="Chiudi verifica scorte" onclick="closeStockModal()">×</button></div><div id="stockContent"></div></div>
   </div>
-  <script src="pdf-viewer.js?v=1.8.31"></script>
-  <script src="app.js?v=1.8.31"></script>
-  <script src="notifications.js?v=1.8.31"></script>
-  <script src="ddt-push.js?v=1.8.31"></script>
-  <script src="ddt-whatsapp.js?v=1.8.31"></script>
-  <script src="stock-check.js?v=1.8.31"></script>
-  <script src="uploaded-ddt.js?v=1.8.31"></script>
+  <script src="pdf-viewer.js?v=1.8.32"></script>
+  <script src="app.js?v=1.8.32"></script>
+  <script src="notifications.js?v=1.8.32"></script>
+  <script src="ddt-push.js?v=1.8.32"></script>
+  <script src="ddt-whatsapp.js?v=1.8.32"></script>
+  <script src="stock-check.js?v=1.8.32"></script>
+  <script src="uploaded-ddt.js?v=1.8.32"></script>
 </body>
 </html>

@@ -18,6 +18,7 @@ function saveNotificationRead(){
 }
 function renderNotificationInbox(){
   const state=notificationInbox;
+  $('notificationBell').classList.toggle('hidden',!APP.user);
   const unread=state.items.filter(item=>!state.read.has(item.id)).length;
   const badge=$('notificationBadge');badge.textContent=unread>99?'99+':String(unread);
   badge.classList.toggle('hidden',!unread);

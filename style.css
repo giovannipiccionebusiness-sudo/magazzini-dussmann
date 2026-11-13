@@ -279,13 +279,19 @@ button{
 }
 
 .logo-box{
-  text-align:center;
+  display:grid;
+  grid-template-columns:minmax(44px,1fr) auto minmax(44px,1fr);
+  align-items:center;
+  gap:10px;
+  min-height:48px;
   margin-bottom:12px;
 }
+.logo-box .company-logo{grid-column:2;display:block;}
+.logo-box .notification-bell{grid-column:3;justify-self:end;}
 
 .company-logo{
-  width:120px !important;
-  max-width:120px !important;
+  width:145px !important;
+  max-width:145px !important;
   height:auto !important;
   opacity:0.95;
 }
@@ -904,8 +910,8 @@ a.ddt-whatsapp-open:focus-visible { outline:3px solid #1f4e78; outline-offset:3p
 .uploaded-ddt-dialog{width:calc(100vw - 28px);max-width:850px;max-height:92dvh;box-sizing:border-box;border:0;border-radius:18px;padding:18px;color:#1b3545;overflow:auto}.uploaded-ddt-dialog::backdrop{background:rgba(10,27,39,.5)}.uploaded-ddt-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.uploaded-ddt-head strong{font-size:1.1rem;overflow-wrap:anywhere}.uploaded-ddt-head .btn{width:auto;margin:0}.uploaded-ddt-tools{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.uploaded-ddt-tools .btn{width:auto;margin:0;min-width:44px;padding:10px 14px;text-decoration:none}.uploaded-ddt-viewport{width:100%;max-height:65dvh;overflow:auto;background:#f1f4f7;touch-action:pan-x pan-y pinch-zoom}.uploaded-ddt-viewport img{display:block;width:100%;max-width:none;height:auto}.uploaded-ddt-dialog p{overflow-wrap:anywhere;font-size:.9rem}
 
 /* Recipient inbox: secondary to the order and DDT actions. */
-.mag-home-header{position:relative;padding-top:52px;}
-.notification-bell{position:absolute;right:0;top:0;width:44px;height:44px;display:grid;place-items:center;background:#e9f3fa;color:#204f73;border:1px solid #d5e3ee;border-radius:50%;cursor:pointer;}
+.mag-home-header{padding-top:0;}
+.notification-bell{position:relative;width:44px;height:44px;display:grid;place-items:center;background:#e9f3fa;color:#204f73;border:1px solid #d5e3ee;border-radius:50%;cursor:pointer;}
 .notification-bell svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
 .notification-bell:focus-visible,.notification-item:focus-visible{outline:3px solid #168ad0;outline-offset:3px;}
 .notification-badge{position:absolute;top:-4px;right:-5px;min-width:21px;height:21px;padding:0 4px;box-sizing:border-box;display:grid;place-items:center;border:2px solid white;border-radius:20px;background:#d50940;color:white;font-size:11px;font-weight:700;}
