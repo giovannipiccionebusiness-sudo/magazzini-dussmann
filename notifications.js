@@ -87,7 +87,7 @@ $('notificationsDialog').addEventListener('close',()=>{
   $('notificationBell').setAttribute('aria-expanded','false');
 });
 document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible' && APP.user && Date.now()-notificationInbox.last>60000)refreshNotifications();
+  if(document.visibilityState==='visible' && APP.user && Date.now()-notificationInbox.last>(APP.user.role==='ADMIN'?30000:60000))refreshNotifications();
 });
 window.addEventListener('storage',event=>{
   if(APP.user && event.key===notificationReadKey(APP.user)){
@@ -99,5 +99,5 @@ if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('messag
   if(event.data?.type==='DDT_NOTIFICATION_RECEIVED' && APP.user)setTimeout(()=>refreshNotifications(),1000);
 });
 setInterval(()=>{
-  if(APP.user && document.visibilityState==='visible' && Date.now()-notificationInbox.last>120000)refreshNotifications();
-},120000);
+  if(APP.user && document.visibilityState==='visible' && Date.now()-notificationInbox.last>(APP.user.role==='ADMIN'?30000:120000))refreshNotifications();
+},30000);
