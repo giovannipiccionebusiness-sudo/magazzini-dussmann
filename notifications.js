@@ -1,20 +1,47 @@
-// The inbox is read through the signed server session, never by a client supplied recipient.
+// Shared read status belongs to the signed-in account; local state is an offline queue.
 let notificationOpenTarget={order:new URLSearchParams(location.search).get('ordine-ddt'),ddt:new URLSearchParams(location.search).get('ddt-caricato')};
-let notificationInbox={user:null,items:[],read:new Set(),request:null,loaded:false,last:0,error:''};
+function newNotificationInbox(user){return {user,items:[],read:new Set(),pending:new Set(),syncTask:null,syncError:'',request:null,loaded:false,last:0,error:''};}
+let notificationInbox=newNotificationInbox(null);
 function notificationReadKey(user){return 'magazzini_notifications_read_'+user.operatoreId;}
+function notificationPendingKey(user){return 'magazzini_notifications_pending_'+user.operatoreId;}
 function resetNotificationInbox(){
-  notificationInbox.request?.abort();
-  notificationInbox={user:APP.user,items:[],read:new Set(),request:null,loaded:false,last:0,error:''};
+  notificationInbox.request?.abort();notificationInbox=newNotificationInbox(APP.user);
   if(APP.user)try{
     const saved=JSON.parse(localStorage.getItem(notificationReadKey(APP.user)) || '[]');
     if(Array.isArray(saved))notificationInbox.read=new Set(saved.filter(id=>typeof id==='string').slice(-500));
+    const pending=localStorage.getItem(notificationPendingKey(APP.user));
+    const queue=pending===null?saved:JSON.parse(pending);
+    if(Array.isArray(queue))notificationInbox.pending=new Set(queue.filter(id=>typeof id==='string').slice(-500));
   }catch{}
-  $('notificationsDialog').close();
-  renderNotificationInbox();
-  if(APP.user)refreshNotifications();
+  $('notificationsDialog').close();renderNotificationInbox();if(APP.user)refreshNotifications();
 }
-function saveNotificationRead(){
-  try{localStorage.setItem(notificationReadKey(APP.user),JSON.stringify([...notificationInbox.read].slice(-500)));}catch{}
+function saveNotificationRead(state=notificationInbox){
+  if(!state.user)return;
+  try{
+    localStorage.setItem(notificationReadKey(state.user),JSON.stringify([...state.read].slice(-500)));
+    localStorage.setItem(notificationPendingKey(state.user),JSON.stringify([...state.pending].slice(-500)));
+  }catch{}
+}
+function markNotificationsRead(ids){
+  const state=notificationInbox;if(!APP.user || state.user!==APP.user)return;
+  for(const id of ids){state.read.add(id);state.pending.add(id);}
+  saveNotificationRead(state);renderNotificationInbox();flushNotificationReads(state);
+}
+function flushNotificationReads(state=notificationInbox){
+  if(state.syncTask)return state.syncTask;
+  if(!state.user || APP.user!==state.user || !state.pending.size)return Promise.resolve();
+  state.syncTask=(async()=>{
+    try{
+      while(state.pending.size && APP.user===state.user && notificationInbox===state){
+        const ids=[...state.pending].slice(0,100);
+        await ddtPushTimedApi('ddtPushMarkRead',{ids:JSON.stringify(ids)},state.user);
+        for(const id of ids)state.pending.delete(id);
+        state.syncError='';saveNotificationRead(state);
+      }
+    }catch{
+      state.syncError='Letture salvate su questo dispositivo. Sincronizzazione da riprovare appena torna la connessione.';saveNotificationRead(state);
+    }finally{state.syncTask=null;if(notificationInbox===state)renderNotificationInbox();}
+  })();return state.syncTask;
 }
 function renderNotificationInbox(){
   const state=notificationInbox;
@@ -26,7 +53,7 @@ function renderNotificationInbox(){
   $('notificationsReadAll').disabled=!unread;
   $('notificationsRefresh').disabled=!!state.request;
   const status=$('notificationsStatus');
-  status.textContent=state.error || (state.request?'Caricamento notifiche…':state.loaded?(state.items.length?'Tocca un avviso per aprire il documento.':'Nessuna notifica ricevuta. Troverai qui i prossimi avvisi.'):'');
+  status.textContent=state.error || state.syncError || (state.request?'Caricamento notifiche…':state.loaded?(state.items.length?'Tocca un avviso per aprire il documento.':'Nessuna notifica ricevuta. Troverai qui i prossimi avvisi.'):'');
   const list=$('notificationsList');list.replaceChildren();
   for(const item of state.items){
     const li=document.createElement('li');
@@ -41,57 +68,45 @@ function renderNotificationInbox(){
     button.append(tag,title,text,date,action);button.onclick=()=>openNotificationItem(item);li.append(button);list.append(li);
   }
 }
+
 async function refreshNotifications(){
-  const state=notificationInbox,user=APP.user;
-  if(!user || state.user!==user || state.request)return;
-  const controller=new AbortController();state.request=controller;state.error='';renderNotificationInbox();
-  const timeout=setTimeout(()=>controller.abort(),30000);
+  const state=notificationInbox,user=APP.user;if(!user || state.user!==user || state.request)return;
+  const controller=new AbortController();state.request=controller;state.error='';renderNotificationInbox();let timeout;
   try{
+    await flushNotificationReads(state);if(notificationInbox!==state || APP.user!==user)return;
+    timeout=setTimeout(()=>controller.abort(),30000);
     const result=await ddtPushApi('ddtPushInbox',{},user,controller.signal);
     if(notificationInbox!==state || APP.user!==user)return;
     state.items=(result.notifications || []).filter(item=>typeof item.id==='string' && typeof item.target==='string' && ['ddt-uploaded','ddt-reminder'].includes(item.type) && (item.type!=='ddt-uploaded' || user.role==='ADMIN'));
-    // Opening a system push also marks its matching inbox entries as read.
+    if(Array.isArray(result.readIds)){
+      // Monotonic merge prevents an older response from undoing a newer read.
+      result.readIds.forEach(id=>state.read.add(id));
+      if(!state.pending.size)state.syncError='';saveNotificationRead(state);
+    }else if(result.readSyncUnavailable){state.syncError='Sincronizzazione delle letture temporaneamente non disponibile. Riprova tra poco.';}
     if(notificationOpenTarget){
-      for(const item of state.items)if(item.target===(item.type==='ddt-uploaded'?notificationOpenTarget.ddt:notificationOpenTarget.order))state.read.add(item.id);
-      notificationOpenTarget=null;saveNotificationRead();
+      const opened=state.items.filter(item=>item.target===(item.type==='ddt-uploaded'?notificationOpenTarget.ddt:notificationOpenTarget.order)).map(item=>item.id);
+      notificationOpenTarget=null;markNotificationsRead(opened);
     }
     state.loaded=true;state.last=Date.now();
-  }catch(error){
-    if(notificationInbox===state)state.error=error.name==='AbortError'?'Il caricamento tarda a rispondere. Tocca Aggiorna per riprovare.':error.message;
-  }finally{
-    clearTimeout(timeout);if(notificationInbox===state){state.request=null;renderNotificationInbox();}
-  }
+  }catch(error){if(notificationInbox===state)state.error=error.name==='AbortError'?'Il caricamento tarda a rispondere. Tocca Aggiorna per riprovare.':error.message;}
+  finally{clearTimeout(timeout);if(notificationInbox===state){state.request=null;renderNotificationInbox();}}
 }
-function openNotifications(){
-  if(!APP.user)return;
-  $('notificationsDialog').showModal();
-  $('notificationBell').setAttribute('aria-expanded','true');
-  refreshNotifications();
-}
-function closeNotifications(){
-  $('notificationsDialog').close();
-}
-function markAllNotificationsRead(){
-  if(!APP.user || notificationInbox.user!==APP.user)return;
-  notificationInbox.items.forEach(item=>notificationInbox.read.add(item.id));
-  saveNotificationRead();renderNotificationInbox();
-}
+function openNotifications(){if(!APP.user)return;$('notificationsDialog').showModal();$('notificationBell').setAttribute('aria-expanded','true');refreshNotifications();}
+function closeNotifications(){$('notificationsDialog').close();}
+function markAllNotificationsRead(){if(APP.user && notificationInbox.user===APP.user)markNotificationsRead(notificationInbox.items.map(item=>item.id));}
 function openNotificationItem(item){
-  if(!APP.user || notificationInbox.user!==APP.user)return;
-  if(item.type==='ddt-uploaded' && APP.user.role!=='ADMIN')return;
-  notificationInbox.read.add(item.id);saveNotificationRead();renderNotificationInbox();closeNotifications();
-  if(item.type==='ddt-uploaded')openUploadedDdtFromLink(item.target);
-  else openDdtReminderFromLink(item.target);
+  if(!APP.user || notificationInbox.user!==APP.user || (item.type==='ddt-uploaded' && APP.user.role!=='ADMIN'))return;
+  markNotificationsRead([item.id]);closeNotifications();
+  if(item.type==='ddt-uploaded')openUploadedDdtFromLink(item.target);else openDdtReminderFromLink(item.target);
 }
-$('notificationsDialog').addEventListener('close',()=>{
-  $('notificationBell').setAttribute('aria-expanded','false');
-});
-document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible' && APP.user && Date.now()-notificationInbox.last>(APP.user.role==='ADMIN'?30000:60000))refreshNotifications();
-});
+$('notificationsDialog').addEventListener('close',()=>{$('notificationBell').setAttribute('aria-expanded','false');});
+function refreshNotificationsOnReturn(){if(document.visibilityState==='visible' && APP.user && Date.now()-notificationInbox.last>3000)refreshNotifications();}
+document.addEventListener('visibilitychange',refreshNotificationsOnReturn);
+window.addEventListener('focus',refreshNotificationsOnReturn);
+window.addEventListener('online',()=>{if(APP.user)refreshNotifications();});
 window.addEventListener('storage',event=>{
   if(APP.user && event.key===notificationReadKey(APP.user)){
-    try{const read=JSON.parse(event.newValue || '[]');if(Array.isArray(read))notificationInbox.read=new Set(read);}catch{}
+    try{const read=JSON.parse(event.newValue || '[]');if(Array.isArray(read))read.forEach(id=>notificationInbox.read.add(id));}catch{}
     renderNotificationInbox();
   }
 });
@@ -99,5 +114,5 @@ if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('messag
   if(event.data?.type==='DDT_NOTIFICATION_RECEIVED' && APP.user)setTimeout(()=>refreshNotifications(),1000);
 });
 setInterval(()=>{
-  if(APP.user && document.visibilityState==='visible' && Date.now()-notificationInbox.last>(APP.user.role==='ADMIN'?30000:120000))refreshNotifications();
-},30000);
+  if(APP.user && document.visibilityState==='visible' && Date.now()-notificationInbox.last>($('notificationsDialog').open?10000:30000))refreshNotifications();
+},10000);
